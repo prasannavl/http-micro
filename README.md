@@ -1,7 +1,7 @@
-# httpx
+# http-micro
 Micro-framework on top of node's http module
 
-`npm install httpx`
+`npm install http-micro`
 
 ### Highlights
 - Works with Typescipt
@@ -14,9 +14,9 @@ Micro-framework on top of node's http module
 ### Example
 
 ```js
-import * as httpx from "httpx";
+import * as micro from "http-micro";
 
-let app = new httpx.Application();
+let app = new micro.Application();
 
 app.use((ctx, next) => {
     const res = ctx.res;

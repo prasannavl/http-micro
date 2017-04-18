@@ -9,7 +9,7 @@
         "declaration": true,
         "baseUrl": ".",
         "paths": {
-            "httpx":["../"]
+            "http-micro":["../"]
         }
     }
 }

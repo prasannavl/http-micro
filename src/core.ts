@@ -2,7 +2,7 @@ import * as http from "http";
 import * as debugModule from "debug";
 import { defaultErrorHandler, defaultFinalHandler, compose } from "./utils";
 
-const debug = debugModule("httpx:core");
+const debug = debugModule("http-micro:core");
 
 export interface IContext {
     req: http.IncomingMessage;

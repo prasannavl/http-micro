@@ -1,12 +1,12 @@
 import { IContext, MiddlewareWithContext, Middleware, MiddlewareResult } from "./core";
 import * as debugModule from "debug";
 
-const debug = debugModule("httpx:utils");
+const debug = debugModule("http-micro:utils");
 
 export function defaultErrorHandler(err: Error) {
     const msg = err.stack || err.toString();
     console.error();
-    console.error(`Httpx Error: ${msg}`);
+    console.error(`http-micro error: ${msg}`);
     console.error();
 }
 

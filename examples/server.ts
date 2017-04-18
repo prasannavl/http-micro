@@ -1,14 +1,11 @@
-import * as debugModule from "debug";
 import * as http from "http";
-import * as httpx from "httpx";
-
-const debug = debugModule("httpx:server");
+import * as micro from "http-micro";
 
 export class Server {
-    private server: httpx.Application;
+    private server: micro.Application;
 
     constructor() {
-        this.server = new httpx.Application();
+        this.server = new micro.Application();
         this.setupMiddleware();
     }
     
@@ -23,7 +20,7 @@ export class Server {
 
     run(port: number, host = "localhost") {
         this.server.listen(port, host, () => {
-            debug("server listening on %s:%s", host, port);
+            console.log("server listening on %s:%s", host, port);
         });
     }
 }

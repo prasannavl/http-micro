@@ -1,5 +1,5 @@
 {
-  "name": "httpx",
+  "name": "http-micro",
   "version": "1.0.0",
   "description": "Micro-framework on top of node's http module",
   "main": "./lib/index.js",
