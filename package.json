@@ -1,7 +1,7 @@
 {
   "name": "httpx",
   "version": "1.0.0",
-  "description": "",
+  "description": "Micro-framework on top of node's http module",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
   "scripts": {
