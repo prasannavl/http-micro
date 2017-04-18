@@ -1,0 +1,15 @@
+{
+    "compilerOptions": {
+        "module": "commonjs",
+        "jsx": "react",
+        "target": "es2016",
+        "outDir": "./build/",
+        "noImplicitAny": true,
+        "noImplicitReturns": true,
+        "declaration": true,
+        "baseUrl": ".",
+        "paths": {
+            "httpx":["../"]
+        }
+    }
+}
