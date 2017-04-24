@@ -1,5 +1,6 @@
 import * as http from "http";
 import * as micro from "http-micro";
+import * as url from "url";
 
 export class Server {
     private server: micro.Application;
@@ -11,6 +12,14 @@ export class Server {
     
     setupMiddleware() {
         let app = this.server;
+        
+        app.use(async (ctx, next) => {
+            if (url.parse(ctx.req.url)
+                .pathname == "/async") {
+                ctx.res.end("Hello world from async!");
+            }
+        });
+
         app.use((ctx, next) => {
             const res = ctx.res;
             res.end("Hello world!");

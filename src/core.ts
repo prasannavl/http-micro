@@ -14,7 +14,7 @@ export interface ContextConstructable<T extends IContext> {
 }
 
 export type Middleware<T extends IContext> = (context: T, next: MiddlewareWithContext) => MiddlewareResult;
-export type MiddlewareResult = Promise<void | string | number | NodeJS.ReadableStream | object>;
+export type MiddlewareResult = Promise<void>;
 export type MiddlewareWithContext = () => MiddlewareResult;
 
 export class ApplicationCore<T extends IContext> {

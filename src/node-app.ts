@@ -1,17 +1,17 @@
 import * as http from "http";
 import { Middleware, IContext, ApplicationCore } from "./core";
 
-export type NativeMiddleware = Middleware<NativeContext>;
+export type NodeMiddleware = Middleware<NodeContext>;
 
-export class NativeContext implements IContext {
+export class NodeContext implements IContext {
     constructor(
         public req: http.IncomingMessage,
         public res: http.ServerResponse) {
     }
 }
 
-export class NativeApplication extends ApplicationCore<NativeContext> {
+export class NodeApplication extends ApplicationCore<NodeContext> {
     constructor() {
-        super(NativeContext);
+        super(NodeContext);
     }
 }

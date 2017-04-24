@@ -1,7 +1,7 @@
 import { ApplicationCore } from "./core";
-import { NativeContext } from "./native-app";
+import { NodeContext } from "./node-app";
 
-export class Context extends NativeContext {
+export class Context extends NodeContext {
     
 }
 
