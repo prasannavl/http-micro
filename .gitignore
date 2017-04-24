@@ -1,5 +1,6 @@
 lib/
 logs/
+examples/build/
 
 # Logs
 logs
