@@ -9,9 +9,9 @@
     "build": "npm run clean && npm run tsc",
     "tsc": "tsc",
     "watch": "tsc -w",
-    "clean-examples": "rimraf examples/build/*",
-    "build-examples": "npm run clean-examples && tsc --p ./examples/tsconfig.json",
-    "test": "echo \"No tests available.\" && exit 0"
+    "test": "echo \"No tests available.\" && exit 0",
+    "example": "nodemon --ext ts,tsx,js,jsx --watch ./ --exec ts-node --project ./examples/ ./examples/index.ts",
+    "autoplay": "nodemon --ext ts,tsx,js,jsx --watch ./ --exec ts-node --project ./playground/ ./playground/autoplay.ts"
   },
   "keywords": [],
   "author": "Prasanna V. Loganathar <pvl@prasannavl.com> (https://www.prasannavl.com/)",
@@ -21,7 +21,9 @@
     "@types/debug": "0.0.29",
     "@types/node": "^6.0.69",
     "bluebird": "^3.5.0",
+    "nodemon": "^1.11.0",
     "rimraf": "^2.6.1",
+    "ts-node": "^3.0.2",
     "typescript": "^2.2.2"
   },
   "dependencies": {
