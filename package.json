@@ -13,7 +13,8 @@
     "example": "nodemon --ext ts,tsx,js,jsx --watch ./ --exec ts-node --project ./examples/ ./examples/index.ts",
     "autoplay": "nodemon --ext ts,tsx,js,jsx --watch ./ --exec ts-node --project ./playground/ ./playground/autoplay.ts"
   },
-  "keywords": [],
+  "repository": "github:prasannavl/http-micro",
+  "keywords": ["server", "http", "micro-framework"],
   "author": "Prasanna V. Loganathar <pvl@prasannavl.com> (https://www.prasannavl.com/)",
   "license": "Apache-2.0",
   "devDependencies": {
