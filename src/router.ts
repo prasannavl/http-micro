@@ -163,7 +163,7 @@ export class Router<T extends Context> {
      * the last middleware in the chain, and the matched route also receives,
      * the parent chain as 'next', should the decide to continue the chain.
      *
-     * Routers automatically mark route as handled with 'isRouteHandled'
+     * Routers automatically mark route as handled with 'routeHandled'
      * when a route is matched, just before execution of the matched route.
      * So the matched route can reset it if needed for advanced cases.
      * 
@@ -181,7 +181,7 @@ export class Router<T extends Context> {
             compose(...middlewares, handler) : handler;
 
         function handleRoute(ctx: T, next: MiddlewareWithContext): Promise<void> {
-            if (ctx.isRouteHandled) return Promise.resolve();
+            if (ctx.routeHandled) return Promise.resolve();
             let method = ctx.getHttpMethod();
             let path = ctx.getRoutePath();
             debug("test: method: %s, path: %s", method, path);

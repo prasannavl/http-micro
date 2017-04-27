@@ -82,7 +82,7 @@ export function compose<T extends IContext>(...middlewares: Middleware<T>[]) : M
  * out of mounted points.
  *
  * A mount point can also provide yield back to the parent middleware
- * chain if the 'isRouteHandled' property of the context is false.
+ * chain if the 'routeHandled' property of the context is false.
  * Routers automatically set them by calling 'markRouteHandled' on
  * matched routes. But they can be manually reset if needed for
  * advanced cases.
@@ -134,7 +134,7 @@ export function mount<T extends Context>(path: string,
         };
         return mx(ctx, () => {
             resetPathIfRequired();
-            return ctx.isRouteHandled ? Promise.resolve() : next();
+            return ctx.routeHandled ? Promise.resolve() : next();
         }).then((res) => {
             resetPathIfRequired();
             return res;

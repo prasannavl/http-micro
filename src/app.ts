@@ -18,7 +18,7 @@ export class Context extends NodeContext {
     private _url: url.Url;
     private _ipAddresses: string[];
     private _routePath: string;
-    isRouteHandled = false;
+    routeHandled = false;
     
     sendAsJson(data: any) {
         let res = this.res;
@@ -118,6 +118,6 @@ export class Context extends NodeContext {
     }
 
     markRouteHandled() {
-        this.isRouteHandled = true;
+        this.routeHandled = true;
     }
 }
