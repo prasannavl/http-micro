@@ -1,4 +1,4 @@
-import { Server } from "./server";
+import { Server } from "./server-routed";
 
 let app = new Server();
 app.run(8000);

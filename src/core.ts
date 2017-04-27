@@ -1,30 +1,37 @@
 import * as http from "http";
 import * as debugModule from "debug";
-import { defaultErrorHandler, defaultFinalHandler, compose } from "./utils";
+import { defaultErrorHandler, defaultFallbackHandler, compose } from "./utils";
 
 const debug = debugModule("http-micro:core");
 
 export interface IContext {
     req: http.IncomingMessage;
     res: http.ServerResponse;
+    app: IApplication;
+    getItems(): Map<string, any>;
 }
 
-export interface ContextConstructable<T extends IContext> {
-    new (req: http.IncomingMessage, res: http.ServerResponse): T;
+export interface IApplication {
+    middlewares: any;
+    listen(...args: any[]): any;
+    getRequestListener(): (req: http.IncomingMessage, res: http.ServerResponse) => void;
+    use(middleware: any) : IApplication;
+    setErrorHandler(handler: (err: Error) => void): void;
+    setFallbackHandler(handler: any): void;
 }
 
 export type Middleware<T extends IContext> = (context: T, next: MiddlewareWithContext) => MiddlewareResult;
 export type MiddlewareResult = Promise<void>;
 export type MiddlewareWithContext = () => MiddlewareResult;
 
-export class ApplicationCore<T extends IContext> {
+export class ApplicationCore<T extends IContext> implements IApplication {
     middlewares: Middleware<T>[] = [];
 
     constructor(
-        private _contextConstructor: ContextConstructable<T>,
+        private _contextFactory: (app: ApplicationCore<T>,
+            req: http.IncomingMessage, res: http.ServerResponse) => T,
         private _errorHandler = defaultErrorHandler,
-        private _finalHandler = defaultFinalHandler) {
-    }
+        private _fallbackHandler = defaultFallbackHandler) {}
 
     listen(...args: any[]) {
         debug('listen');
@@ -33,22 +40,22 @@ export class ApplicationCore<T extends IContext> {
     }
 
     getRequestListener(): (req: http.IncomingMessage, res: http.ServerResponse) => void {
-        const fn = compose(this.middlewares);
+        const fn = compose(...this.middlewares);
         return (req, res) => {
-            let errorHandler = this._errorHandler || defaultErrorHandler;            
+            let errorHandler = this._errorHandler || defaultErrorHandler;  
+            let fallbackHandler = this._fallbackHandler || defaultFallbackHandler;            
             try {
-                let finalHandler = this._finalHandler || defaultFinalHandler;                
-                let context = new this._contextConstructor(req, res);       
-                fn(context, finalHandler.bind(null, context, null)).catch(errorHandler);
+                let context = this._contextFactory(this, req, res);
+                fn(context, fallbackHandler.bind(null, context, null))
+                    .catch(errorHandler);
             } catch (err) {
                 errorHandler(err);
             }
         };
     }
 
-    use(middleware: Middleware<T>) {
-        debug(`adding ${(middleware as any)._name || middleware.name || 'middleware'}`);
-        this.middlewares.push(middleware);
+    use(middleware: Middleware<T> | Middleware<T>[]) {
+        this.middlewares = this.middlewares.concat(middleware);
         return this;
     }
 
@@ -56,8 +63,8 @@ export class ApplicationCore<T extends IContext> {
         this._errorHandler = handler;
     }
 
-    setFinalHandler(handler: Middleware<T>) {
-        this._finalHandler = handler;
+    setFallbackHandler(handler: Middleware<T>) {
+        this._fallbackHandler = handler;
     }
 }
 

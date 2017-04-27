@@ -17,6 +17,8 @@ export class Server {
             if (url.parse(ctx.req.url)
                 .pathname == "/async") {
                 ctx.res.end("Hello world from async!");
+            } else {
+                await next();
             }
         });
 
