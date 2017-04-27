@@ -12,6 +12,7 @@ app.use((ctx) => {
 **Installation:** `npm install http-micro`
 
 ### Highlights
+
 - Written in and works with Typescipt
 - No monkey-patching Node's http module or any other module.
 - Koa-like contexts that can be generically typed in TS.
