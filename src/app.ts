@@ -66,8 +66,8 @@ export class Context extends NodeContext {
         return this.req.method;
     }
 
-    getUserIpAddress() {
-        return this.req.socket.remoteAddress;
+    getClientIpAddress() {
+        return this.getUpstreamIpAddresses()[0];
     }
 
     getUpstreamIpAddresses() {
@@ -75,11 +75,16 @@ export class Context extends NodeContext {
         if (existing) return existing;
 
         let req = this.req;
-        var proxyAddrs = (req.headers['x-forwarded-for'] || '')
-            .split(/ *, */)
-            .filter(Boolean)
-            .reverse();
-        var addrs = [this.getUserIpAddress()].concat(proxyAddrs);
+        let addrs;
+        let forwardHeaders = req.headers['x-forwarded-for'] as string;
+
+        if (forwardHeaders) {
+            addrs = forwardHeaders
+                .split(/ *, */)
+                .filter(x => x);
+        } else {
+            addrs = [this.req.socket.remoteAddress];
+        }
         return this._ipAddresses = addrs;
     }
 
