@@ -82,6 +82,7 @@ export class Context extends NodeContext {
             addrs = forwardHeaders
                 .split(/ *, */)
                 .filter(x => x);
+            addrs.push(this.req.socket.remoteAddress);
         } else {
             addrs = [this.req.socket.remoteAddress];
         }
