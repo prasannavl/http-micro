@@ -74,9 +74,8 @@ export class Context extends NodeContext {
         let existing = this._ipAddresses;
         if (existing) return existing;
 
-        let req = this.req;
         let addrs;
-        let forwardHeaders = req.headers['x-forwarded-for'] as string;
+        let forwardHeaders = this.req.headers['x-forwarded-for'] as string;
 
         if (forwardHeaders) {
             addrs = forwardHeaders
@@ -87,6 +86,35 @@ export class Context extends NodeContext {
             addrs = [this.req.socket.remoteAddress];
         }
         return this._ipAddresses = addrs;
+    }
+
+    getHost(): string {
+        let host = this.req.headers["x-forwarded-host"] || this.req.headers["host"];
+        return stripBrackets(host);
+        
+        function stripBrackets(host: string) {
+            // IPv6 uses [::]:port format.
+            // Brackets are used to separate the port from
+            // the address. In this case, remove the brackets,
+            // and extract the address only.
+
+            let offset = host[0] === '['
+                ? host.indexOf(']') + 1
+                : 0;
+            let index = host.indexOf(':', offset);
+
+            return index !== -1
+                ? host.substring(0, index)
+                : host;
+        }
+    }
+
+    getProtocol(): string {
+        return  this.isEncrypted() ? "https" : "http";
+    }
+
+    isEncrypted() {
+        return (this.req.connection as any).encrypted ? true : false;
     }
 
     markRouteHandled() {
