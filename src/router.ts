@@ -15,6 +15,18 @@ export class Router<T extends Context> {
     }
 
     /**
+     * Add a route for any http method. If a specific method,
+     * for the same path is also provided, that always takes
+     * precedence.
+     *
+     * @param route 
+     * @param handler
+     */
+    any(route: Route, handler: Middleware<T>) {
+        return this.define(route, HttpMethod.Any, handler);
+    }
+
+    /**
      * Add a route for Http GET method
      * @param route 
      * @param handler
@@ -163,11 +175,11 @@ export class Router<T extends Context> {
         let debug = debugModule("http-micro:router:" + (debugName || "$"));
         let middlewares = this._middlewares || [];
 
-        let handler = handleRoute.bind(this);        
-        
+        let handler = handleRoute.bind(this);
+
         return middlewares.length > 0 ?
             compose(...middlewares, handler) : handler;
-        
+
         function handleRoute(ctx: T, next: MiddlewareWithContext): Promise<void> {
             if (ctx.isRouteHandled) return Promise.resolve();
             let method = ctx.getHttpMethod();
