@@ -118,19 +118,28 @@ export function mount<T extends Context>(path: string,
         let routePath = ctx.getRoutePath();
         debug("test: route path: %s, mount path: %s", routePath, path);        
         if (!routePath.startsWith(path)) {
-            debug("no match");
             return next();
         }
-        debug("match");
-        let currentRoutePath = routePath.slice(pathLength);
+        let currentRoutePath = routePath.slice(pathLength);        
+        debug("enter: %s", currentRoutePath);
         ctx.setRoutePath(currentRoutePath);
+        let isRoutePathReset = false;
+
+        let resetPathIfRequired = () => {
+            if (!isRoutePathReset) {
+                debug("exit: %s", currentRoutePath);
+                ctx.setRoutePath(routePath);
+                isRoutePathReset = true;
+            }
+        };
         return mx(ctx, () => {
+            resetPathIfRequired();
             return ctx.isRouteHandled ? Promise.resolve() : next();
         }).then((res) => {
-            ctx.setRoutePath(routePath);
+            resetPathIfRequired();
             return res;
         }, (err) => {
-            ctx.setRoutePath(routePath);
+            resetPathIfRequired();     
             throw err;
         });
     };
