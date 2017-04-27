@@ -30,7 +30,7 @@ export function defaultErrorHandler(err: Error) {
  * @returns {Promise} Resolved Promise
  */
 export function defaultFallbackHandler(context: IContext, next: MiddlewareWithContext) {
-    debug("final middleware");
+    debug("using fallback middleware");
     context.res.end();
     return Promise.resolve();
 }
@@ -117,7 +117,7 @@ export function mount<T extends Context>(path: string,
     return (ctx, next) => {
         let routePath = ctx.getRoutePath();
         debug("test: route path: %s, mount path: %s", routePath, path);        
-        if (routePath.indexOf(path) !== 0) {
+        if (!routePath.startsWith(path)) {
             debug("no match");
             return next();
         }

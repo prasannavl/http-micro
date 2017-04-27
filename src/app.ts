@@ -1,7 +1,18 @@
 import { Middleware, IContext, IApplication, ApplicationCore } from "./core";
-import { NodeContext } from "./node-app";
+import { NodeContext } from "./core-node";
 import * as http from "http";
 import * as url from "url";
+
+export class Application extends ApplicationCore<Context> {
+    constructor() {
+        super(contextFactory);
+    }
+}
+
+export function contextFactory(app: IApplication,
+    req: http.IncomingMessage, res: http.ServerResponse) {
+    return new Context(app, req, res);
+}
 
 export class Context extends NodeContext {
     private _url: url.Url;
@@ -15,9 +26,9 @@ export class Context extends NodeContext {
         this.res.end(JSON.stringify(data));
     }
 
-    sendAsText(data: string) {
+    sendText(text: string) {
         this.setHeader("Content-Type", "text/plain", false);
-        this.res.end(data);
+        this.res.end(text);
     }
 
     setHeader(key: string, value: string, replace = true) {
@@ -74,16 +85,5 @@ export class Context extends NodeContext {
 
     markRouteHandled() {
         this.isRouteHandled = true;
-    }
-}
-
-export function contextFactory(app: IApplication,
-    req: http.IncomingMessage, res: http.ServerResponse) {
-    return new Context(app, req, res);
-}
-
-export class Application extends ApplicationCore<Context> {
-    constructor() {
-        super(contextFactory);
     }
 }

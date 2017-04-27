@@ -4,13 +4,6 @@ import { defaultErrorHandler, defaultFallbackHandler, compose } from "./utils";
 
 const debug = debugModule("http-micro:core");
 
-export interface IContext {
-    req: http.IncomingMessage;
-    res: http.ServerResponse;
-    app: IApplication;
-    getItems(): Map<string, any>;
-}
-
 export interface IApplication {
     middlewares: any;
     listen(...args: any[]): any;
@@ -18,6 +11,13 @@ export interface IApplication {
     use(middleware: any) : IApplication;
     setErrorHandler(handler: (err: Error) => void): void;
     setFallbackHandler(handler: any): void;
+}
+
+export interface IContext {
+    req: http.IncomingMessage;
+    res: http.ServerResponse;
+    app: IApplication;
+    getItems(): Map<string, any>;
 }
 
 export type Middleware<T extends IContext> = (context: T, next: MiddlewareWithContext) => MiddlewareResult;

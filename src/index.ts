@@ -1,5 +1,5 @@
 export * from "./core";
-export * from "./node-app";
+export * from "./core-node";
 export * from "./app";
 export * from "./utils";
 export * from "./router";

@@ -20,12 +20,11 @@
     "@types/bluebird": "^3.5.2",
     "@types/debug": "0.0.29",
     "@types/node": "^6.0.69",
-    "@types/uuid": "^2.0.29",
+    "bluebird": "^3.5.0",    
     "rimraf": "^2.6.1",
     "typescript": "^2.2.2"
   },
   "dependencies": {
-    "bluebird": "^3.5.0",
     "debug": "^2.6.3"
   }
 }

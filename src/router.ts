@@ -2,25 +2,8 @@ import { IContext, Middleware, MiddlewareWithContext } from "./core";
 import { Context } from "./app";
 import { compose } from "./utils";
 import * as debugModule from "debug";
-import * as uuid from "uuid";
 
 const debug = debugModule("http-micro:router");
-
-export class RouteMap<T extends Context> extends Map<string, Middleware<T>> { }
-
-export class HttpMethod {
-    static Any = "*";
-    static Get = "GET";
-    static Head = "HEAD";
-    static Post = "POST";
-    static Put = "PUT";
-    static Delete = "DELETE";
-    static Patch = "PATCH";
-    static Options = "OPTIONS";
-    static Trace = "TRACE";
-}
-
-export type Route = string | RegExp;
 
 export class Router<T extends Context> {
     private _pathRoutes: Map<string, RouteMap<T>>;
@@ -200,4 +183,19 @@ export class Router<T extends Context> {
             return next();
         }
     }
+}
+
+export type Route = string | RegExp;
+export class RouteMap<T extends Context> extends Map<string, Middleware<T>> { }
+
+export class HttpMethod {
+    static Any = "*";
+    static Get = "GET";
+    static Head = "HEAD";
+    static Post = "POST";
+    static Put = "PUT";
+    static Delete = "DELETE";
+    static Patch = "PATCH";
+    static Options = "OPTIONS";
+    static Trace = "TRACE";
 }
