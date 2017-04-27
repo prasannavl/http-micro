@@ -2,6 +2,7 @@ import { Middleware, IContext, IApplication, ApplicationCore } from "./core";
 import { NodeContext } from "./core-node";
 import * as http from "http";
 import * as url from "url";
+import { stringify } from "./utils";
 
 export class Application extends ApplicationCore<Context> {
     constructor() {
@@ -21,10 +22,12 @@ export class Context extends NodeContext {
 
     routeHandled = false;
 
-    sendAsJson(data: any) {
+    sendAsJson(data: any,
+        replacer?: (key: string, value: any) => any,
+        spaces?: string | number) {
         let res = this.res;
         this.setHeader("Content-Type", "application/json", false);
-        this.res.end(JSON.stringify(data));
+        this.res.end(stringify(data, replacer, spaces));
     }
 
     sendText(text: string) {

@@ -98,7 +98,10 @@ export function compose<T extends IContext>(...middlewares: Middleware<T>[]) : M
  * @returns {Middleware<T>} 
  */
 export function mount<T extends Context>(path: string,
-    middleware: Middleware<T> | Router<T>, debugName? : string): Middleware<T> {
+    middleware: Middleware<T> | Router<T>, debugName?: string): Middleware<T> {
+    
+    // TODO: Case insensitive path options
+
     let pathLength = path.length;
     // If the path ends with '/', then remove ensure that the slice retains a 
     // slash, so that router matching can still be performed relative to the 
@@ -143,4 +146,17 @@ export function mount<T extends Context>(path: string,
             throw err;
         });
     };
+}
+
+/**
+ * Stringify JSON, like JSON.stringify, but v8 optimized.
+ */
+export function stringify(value: any,
+    replacer: (key: string, value: any) => any,
+    spaces: string | number) {
+  // v8 checks arguments.length for optimizing simple call
+  // https://bugs.chromium.org/p/v8/issues/detail?id=4730
+  return replacer || spaces
+    ? JSON.stringify(value, replacer, spaces)
+    : JSON.stringify(value);
 }
