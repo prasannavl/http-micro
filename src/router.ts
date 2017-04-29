@@ -41,7 +41,7 @@ export class Router<T extends Context> {
      * @param handler
      */
     put(route: Route, handler: Middleware<T>) {
-        return this.define(route, HttpMethod.Get, handler);
+        return this.define(route, HttpMethod.Put, handler);
     }
 
     /**
@@ -50,7 +50,7 @@ export class Router<T extends Context> {
      * @param handler
      */
     post(route: Route, handler: Middleware<T>) {
-        return this.define(route, HttpMethod.Get, handler);
+        return this.define(route, HttpMethod.Post, handler);
     }
 
     /**
@@ -59,7 +59,7 @@ export class Router<T extends Context> {
      * @param handler
      */
     delete(route: Route, handler: Middleware<T>) {
-        return this.define(route, HttpMethod.Get, handler);
+        return this.define(route, HttpMethod.Delete, handler);
     }
 
     /**
@@ -68,7 +68,7 @@ export class Router<T extends Context> {
      * @param handler
      */
     patch(route: Route, handler: Middleware<T>) {
-        return this.define(route, HttpMethod.Get, handler);
+        return this.define(route, HttpMethod.Patch, handler);
     }
 
     /**
