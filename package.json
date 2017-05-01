@@ -1,6 +1,6 @@
 {
   "name": "http-micro",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Micro-framework on top of node's http module",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
@@ -14,7 +14,11 @@
     "autoplay": "nodemon --ext ts,tsx,js,jsx --watch ./ --exec ts-node --project ./playground/ ./playground/autoplay.ts"
   },
   "repository": "github:prasannavl/http-micro",
-  "keywords": ["server", "http", "micro-framework"],
+  "keywords": [
+    "server",
+    "http",
+    "micro-framework"
+  ],
   "author": "Prasanna V. Loganathar <pvl@prasannavl.com> (https://www.prasannavl.com/)",
   "license": "Apache-2.0",
   "devDependencies": {
