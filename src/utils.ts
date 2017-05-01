@@ -1,5 +1,5 @@
 import { IContext, MiddlewareWithContext, Middleware, MiddlewareResult } from "./core";
-import { Context } from "./app";
+import { Context } from "./context";
 import * as url from "url";
 import { Router } from "./router";
 import * as debugModule from "debug";

@@ -1,5 +1,5 @@
 import { IContext, Middleware, MiddlewareWithContext } from "./core";
-import { Context } from "./app";
+import { Context } from "./context";
 import { compose } from "./utils";
 import * as debugModule from "debug";
 

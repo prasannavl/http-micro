@@ -4,20 +4,26 @@ import { defaultErrorHandler, defaultFallbackHandler, compose } from "./utils";
 
 const debug = debugModule("http-micro:core");
 
-export interface IApplication {
+export interface ItemsContainer {
+    items: Map<string, any>;
+    get(key: string): any;
+    set(key: string, value: any): void;
+    has(key: string): boolean;
+}
+
+export interface IApplication extends ItemsContainer {
     middlewares: any;
     listen(...args: any[]): any;
     getRequestListener(): (req: http.IncomingMessage, res: http.ServerResponse) => void;
-    use(middleware: any) : IApplication;
+    use(middleware: any): IApplication;
     setErrorHandler(handler: (err: Error) => void): void;
     setFallbackHandler(handler: any): void;
 }
 
-export interface IContext {
+export interface IContext extends ItemsContainer {
     req: http.IncomingMessage;
     res: http.ServerResponse;
     app: IApplication;
-    getItems(): Map<string, any>;
 }
 
 export type Middleware<T extends IContext> = (context: T, next: MiddlewareWithContext) => MiddlewareResult;
@@ -26,6 +32,7 @@ export type MiddlewareWithContext = () => MiddlewareResult;
 
 export class ApplicationCore<T extends IContext> implements IApplication {
     middlewares: Middleware<T>[] = [];
+    items: Map<string, any>;
 
     constructor(
         private _contextFactory: (app: ApplicationCore<T>,
@@ -65,6 +72,28 @@ export class ApplicationCore<T extends IContext> implements IApplication {
 
     setFallbackHandler(handler: Middleware<T>) {
         this._fallbackHandler = handler;
+    }
+
+
+    get(key: string): any {
+        if (this.items) {
+            return this.items.get(key);
+        }
+        return null;
+    }
+
+    set(key: string, value: any): void {
+        if (!this.items) {
+            this.items = new Map<string, any>();
+        }
+        this.items.set(key, value);
+    }
+
+    has(key: string): boolean {
+        if (this.items) {
+            return this.items.has(key);
+        }
+        return false;
     }
 }
 

@@ -42,7 +42,8 @@ class Server {
 
         app.use((ctx, next) => {
             const res = ctx.res;
-            ctx.sendAsJson(ctx.req.headers["some"]);
+            ctx.setHeader("some", ["one", "two", "thre"] as any);
+            ctx.sendAsJson({ message: "ok" });
             return Promise.resolve();
         });
     }
