@@ -24,6 +24,21 @@ export class Context extends NodeContext {
         this.res.end(text);
     }
 
+    /**
+     * Check if a request has a request body.
+     * A request with a body __must__ either have `transfer-encoding`
+     * or `content-length` headers set.
+     * http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.3
+     *
+     * @param {Object} request
+     * @return {Boolean}
+     */
+    hasRequestbody() {
+        let req = this.req;
+        return req.headers['transfer-encoding'] !== undefined ||
+            !isNaN(req.headers['content-length'])
+    }
+
     setHeader(key: string, value: string, replace = true) {
         let res = this.res;
         if (!replace && res.getHeader(key)) return false;
@@ -95,7 +110,7 @@ export class Context extends NodeContext {
                 else res.setHeader(key, arr);
             }
         } else {
-            
+
             // Header value is a string seperated by a ",".
             // If both the comma's are present, replace the pattern with one
             // ", ". Or else, replace it with an empty string, and trim it.
@@ -111,7 +126,7 @@ export class Context extends NodeContext {
                 let v = existing
                     .replace(match[0], match.length === 3 ? ", " : "")
                     .trim();
-                
+
                 if (!v && removeHeaderIfEmpty) res.removeHeader(key);
                 else res.setHeader(key, v);
             }
