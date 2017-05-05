@@ -106,8 +106,10 @@ export function mount<T extends Context>(path: string,
     // If the path ends with '/', then remove ensure that the slice retains a 
     // slash, so that router matching can still be performed relative to the 
     // route.
-    if (path[pathLength - 1] === "/") pathLength--;
-
+    if (path[pathLength - 1] === "/") {
+        pathLength--;        
+        path = path.slice(0, pathLength);
+    }
     // Setup debug name, and use the same for the router as well, if the 
     // provided argument is a router instead of a middleware.
     if (!debugName) debugName = "$" + path;
@@ -119,11 +121,11 @@ export function mount<T extends Context>(path: string,
 
     return (ctx, next) => {
         let routePath = ctx.getRoutePath();
-        let currentRoutePath = routePath.slice(pathLength);                
-        debug("test: route path: %s, mount path: %s", currentRoutePath, path);        
+        debug("test: route path: %s, mount path: %s", routePath, path);        
         if (!routePath.startsWith(path)) {
             return next();
         }
+        let currentRoutePath = routePath.slice(pathLength);        
         debug("enter: %s", currentRoutePath);
         ctx.setRoutePath(currentRoutePath);
         let isRoutePathReset = false;
