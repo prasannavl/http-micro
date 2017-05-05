@@ -144,7 +144,7 @@ export class Router<T extends Context> {
      */
 
     match(path: string, method: string): Middleware<T> {
-        let targetPath = path || "/";
+        let targetPath = path.startsWith("/") ? path : "/" + path;
         let pathRoutes = this._getPathRoutes();
         let routeMap = pathRoutes.get(targetPath);
         if (routeMap) {

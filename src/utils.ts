@@ -101,8 +101,8 @@ export function mount<T extends Context>(path: string,
     middleware: Middleware<T> | Router<T>, debugName?: string): Middleware<T> {
     
     // TODO: Case insensitive path options    
-    let targetPath = path.endsWith("/") ? path : path + "/";
-    let pathLength = targetPath.length - 1;
+    let targetPath = path;
+    let pathLength = targetPath.length;
     
     // Setup debug name, and use the same for the router as well, if the 
     // provided argument is a router instead of a middleware.

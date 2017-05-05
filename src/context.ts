@@ -5,9 +5,9 @@ import * as url from "url";
 import { stringify } from "./utils";
 
 export class Context extends NodeContext {
-    private _url: url.Url;
-    private _ipAddresses: string[];
-    private _routePath: string;
+    private _url: url.Url = null;
+    private _ipAddresses: string[] = null;
+    private _routePath: string = null;
 
     routeHandled = false;
 
@@ -134,11 +134,17 @@ export class Context extends NodeContext {
     }
 
     getUrl() {
-        return this._url || (this._url = url.parse(this.req.url));
+        if (this._url === null) {
+            this._url = url.parse(this.req.url);
+        }
+        return this._url;
     }
 
     getRoutePath() {
-        return this._routePath || (this.getUrl().pathname);
+        if (this._routePath === null) {
+            this._routePath = this.getUrl().pathname;
+        }
+        return this._routePath;
     }
 
     setRoutePath(path: string) {
