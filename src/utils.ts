@@ -100,8 +100,8 @@ export function compose<T extends IContext>(...middlewares: Middleware<T>[]) : M
 export function mount<T extends Context>(path: string,
     middleware: Middleware<T> | Router<T>, debugName?: string): Middleware<T> {
     
-    // TODO: Case insensitive path options    
-    let targetPath = path;
+    // TODO: Case insensitive path options
+    let targetPath = path.endsWith("/") ? path.slice(0, -1) : path;
     let pathLength = targetPath.length;
     
     // Setup debug name, and use the same for the router as well, if the 
