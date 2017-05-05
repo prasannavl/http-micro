@@ -119,11 +119,11 @@ export function mount<T extends Context>(path: string,
 
     return (ctx, next) => {
         let routePath = ctx.getRoutePath();
-        debug("test: route path: %s, mount path: %s", routePath, path);        
+        let currentRoutePath = routePath.slice(pathLength);                
+        debug("test: route path: %s, mount path: %s", currentRoutePath, path);        
         if (!routePath.startsWith(path)) {
             return next();
         }
-        let currentRoutePath = routePath.slice(pathLength);        
         debug("enter: %s", currentRoutePath);
         ctx.setRoutePath(currentRoutePath);
         let isRoutePathReset = false;
