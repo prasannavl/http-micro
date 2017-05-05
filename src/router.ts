@@ -115,13 +115,14 @@ export class Router<T extends Context> {
 
     private _defineStringRoute(route: string, method: string, handler: Middleware<T>) {
         let pathRoutes = this._getPathRoutes();
-        let existing = pathRoutes.get(route);
+        let targetRoute = route.startsWith("/") ? route : "/" + route;
+        let existing = pathRoutes.get(targetRoute);
         if (existing) {
             existing.set(method, handler);
         } else {
             let m = new RouteMap<T>();
             m.set(method, handler);
-            pathRoutes.set(route, m);
+            pathRoutes.set(targetRoute, m);
         }
     }
 
@@ -143,8 +144,9 @@ export class Router<T extends Context> {
      */
 
     match(path: string, method: string): Middleware<T> {
+        let targetPath = path || "/";
         let pathRoutes = this._getPathRoutes();
-        let routeMap = pathRoutes.get(path);
+        let routeMap = pathRoutes.get(targetPath);
         if (routeMap) {
             let handler = routeMap.get(method);
             if (handler) return handler as Middleware<T>;

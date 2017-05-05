@@ -100,19 +100,13 @@ export function compose<T extends IContext>(...middlewares: Middleware<T>[]) : M
 export function mount<T extends Context>(path: string,
     middleware: Middleware<T> | Router<T>, debugName?: string): Middleware<T> {
     
-    // TODO: Case insensitive path options
-
-    let pathLength = path.length;
-    // If the path ends with '/', then remove ensure that the slice retains a 
-    // slash, so that router matching can still be performed relative to the 
-    // route.
-    if (path[pathLength - 1] === "/") {
-        pathLength--;        
-        path = path.slice(0, pathLength);
-    }
+    // TODO: Case insensitive path options    
+    let targetPath = path.endsWith("/") ? path : path + "/";
+    let pathLength = targetPath.length - 1;
+    
     // Setup debug name, and use the same for the router as well, if the 
     // provided argument is a router instead of a middleware.
-    if (!debugName) debugName = "$" + path;
+    if (!debugName) debugName = "$" + targetPath;
     let debug = debugModule("http-micro:utils:mount:" + debugName);
     // Ensure that, if the param is a router, it's converted to middleware.
     let mx = typeof middleware === "function" ?
@@ -121,11 +115,11 @@ export function mount<T extends Context>(path: string,
 
     return (ctx, next) => {
         let routePath = ctx.getRoutePath();
-        debug("test: route path: %s, mount path: %s", routePath, path);        
-        if (!routePath.startsWith(path)) {
+        debug("test: route path: %s, mount path: %s", routePath, targetPath);        
+        if (!routePath.startsWith(targetPath)) {
             return next();
         }
-        let currentRoutePath = routePath.slice(pathLength);        
+        let currentRoutePath = routePath.slice(pathLength);
         debug("enter: %s", currentRoutePath);
         ctx.setRoutePath(currentRoutePath);
         let isRoutePathReset = false;
