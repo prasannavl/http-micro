@@ -3,6 +3,7 @@ import { Context } from "./context";
 import * as url from "url";
 import { Router } from "./router";
 import * as debugModule from "debug";
+import * as net from "net";
 
 const debug = debugModule("http-micro:utils");
 
@@ -34,6 +35,13 @@ export function defaultFallbackHandler(context: IContext, next: MiddlewareWithCo
     context.res.end();
     return Promise.resolve();
 }
+
+
+export function defaultClientErrorHandler(err: any, socket: net.Socket) {
+    debug("client error: closing socket with bad request");
+    socket.end("HTTP/1.1 400 Bad Request\r\n\r\n");
+}
+
 
 /**
  * Composes multiple middlewares into one middleware that executes the middleware chain.

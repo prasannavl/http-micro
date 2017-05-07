@@ -1,6 +1,7 @@
 import * as http from "http";
 import * as debugModule from "debug";
-import { defaultErrorHandler, defaultFallbackHandler, compose } from "./utils";
+import * as net from "net";
+import * as utils from "./utils";
 
 const debug = debugModule("http-micro:core");
 
@@ -33,24 +34,29 @@ export type MiddlewareWithContext = () => MiddlewareResult;
 export class ApplicationCore<T extends IContext> implements IApplication {
     middlewares: Middleware<T>[] = [];
     items: Map<string, any>;
+    private _socketClientErrorHandler: (err: any, socket: net.Socket) => void;
 
     constructor(
         private _contextFactory: (app: ApplicationCore<T>,
             req: http.IncomingMessage, res: http.ServerResponse) => T,
-        private _errorHandler = defaultErrorHandler,
-        private _fallbackHandler = defaultFallbackHandler) {}
+        private _errorHandler = utils.defaultErrorHandler,
+        private _fallbackHandler = utils.defaultFallbackHandler) {}
 
     listen(...args: any[]) {
         debug('listen');
         const server = http.createServer(this.getRequestListener());
+        server.on("clientError", (err: any, socket: net.Socket) => {
+            let handler = this._socketClientErrorHandler || utils.defaultClientErrorHandler;
+            handler(err, socket);
+        });
         return server.listen.apply(server, arguments);
     }
 
     getRequestListener(): (req: http.IncomingMessage, res: http.ServerResponse) => void {
-        const fn = compose(...this.middlewares);
+        const fn = utils.compose(...this.middlewares);
         return (req, res) => {
-            let errorHandler = this._errorHandler || defaultErrorHandler;  
-            let fallbackHandler = this._fallbackHandler || defaultFallbackHandler;            
+            let errorHandler = this._errorHandler || utils.defaultErrorHandler;  
+            let fallbackHandler = this._fallbackHandler || utils.defaultFallbackHandler;            
             try {
                 let context = this._contextFactory(this, req, res);
                 fn(context, fallbackHandler.bind(null, context, null))
@@ -74,6 +80,9 @@ export class ApplicationCore<T extends IContext> implements IApplication {
         this._fallbackHandler = handler;
     }
 
+    setSocketClientErrorHandler(handler: (err: any, socket: net.Socket) => void) {
+        this._socketClientErrorHandler = handler;
+    }
 
     get(key: string): any {
         if (this.items) {
