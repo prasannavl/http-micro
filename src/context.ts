@@ -3,6 +3,7 @@ import { NodeContext } from "./core-node";
 import * as http from "http";
 import * as url from "url";
 import { stringify } from "./utils";
+import { isString } from "./lang";
 
 export class Context extends NodeContext {
     private _url: url.Url = null;
@@ -22,6 +23,46 @@ export class Context extends NodeContext {
     sendText(text: string) {
         this.setHeader("Content-Type", "text/plain", false);
         this.res.end(text);
+    }
+
+    sendStatus(code: number, message? : string) {
+        this.res.statusCode = code;
+        if (message)
+            this.res.statusMessage = message;
+        this.res.end();
+    }
+
+    sendNoContent() {
+        this.sendStatus(204);
+    }
+
+    sendResetContent() {
+        this.sendStatus(205);
+    }
+
+    sendMethodNotAllowed(allowedMethods: string[], reason = http.STATUS_CODES[405]) {
+        if (!allowedMethods)
+            throw new Error("allowed methods must be present");
+        let headers = {
+            "Allow": allowedMethods.join(", ")
+        };
+        this.send(reason, headers, 405);
+    }
+
+    sendNotFound(reason = http.STATUS_CODES[404]) {
+        this.send(reason, null, 404);
+    }
+
+    send(body: any, headers?: any, code = 200) {
+        this.res.writeHead(code, null, headers);
+        // TODO: Do proper content negotiation here.
+        isString(body) ?
+            this.sendText(body) :
+            this.sendAsJson(body);
+    }
+
+    sendForbidden(reason: any) {
+        this.send(reason, null, 401);
     }
 
     /**
