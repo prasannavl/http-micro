@@ -25,11 +25,15 @@ export class Context extends NodeContext {
         this.res.end(text);
     }
 
-    sendStatus(code: number, message? : string) {
+    sendStatus(code: number, message?: string) {
+        this.setStatus(code, message);
+        this.res.end();
+    }
+
+    setStatus(code: number, message?: string) {
         this.res.statusCode = code;
         if (message)
             this.res.statusMessage = message;
-        this.res.end();
     }
 
     sendNoContent() {
