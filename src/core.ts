@@ -40,7 +40,7 @@ export class ApplicationCore<T extends IContext> implements IApplication {
         private _contextFactory: (app: ApplicationCore<T>,
             req: http.IncomingMessage, res: http.ServerResponse) => T,
         private _errorHandler = utils.defaultErrorHandler,
-        private _fallbackHandler = utils.defaultFallbackHandler) {}
+        private _fallbackHandler = utils.defaultFallbackNotFoundHandler) {}
 
     listen(...args: any[]) {
         debug('listen');
@@ -56,7 +56,7 @@ export class ApplicationCore<T extends IContext> implements IApplication {
         const fn = utils.compose(...this.middlewares);
         return (req, res) => {
             let errorHandler = this._errorHandler || utils.defaultErrorHandler;  
-            let fallbackHandler = this._fallbackHandler || utils.defaultFallbackHandler;            
+            let fallbackHandler = this._fallbackHandler || utils.defaultFallbackNotFoundHandler;            
             try {
                 let context = this._contextFactory(this, req, res);
                 fn(context, fallbackHandler.bind(null, context, null))

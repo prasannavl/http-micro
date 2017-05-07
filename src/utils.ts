@@ -4,6 +4,7 @@ import * as url from "url";
 import { Router } from "./router";
 import * as debugModule from "debug";
 import * as net from "net";
+import * as http from "http";
 
 const debug = debugModule("http-micro:utils");
 
@@ -23,16 +24,31 @@ export function defaultErrorHandler(err: Error) {
 }
 
 /**
- * The default fall-back handler. Simple ends the request, and returns.
+ * A default fall-back handler that simply ends the request, and returns.
  * 
  * @export
  * @param {IContext} context 
  * @param {MiddlewareWithContext} next 
  * @returns {Promise} Resolved Promise
  */
-export function defaultFallbackHandler(context: IContext, next: MiddlewareWithContext) {
-    debug("using fallback middleware");
+export function defaultFallbackOkHandler(context: IContext, next: MiddlewareWithContext) {
+    debug("using fallback (ok) middleware");
     context.res.end();
+    return Promise.resolve();
+}
+
+/**
+ * The default fall-back handler that ends the request with 404 status code.
+ * 
+ * @export
+ * @param {IContext} context 
+ * @param {MiddlewareWithContext} next 
+ * @returns {Promise} Resolved Promise
+ */
+export function defaultFallbackNotFoundHandler(context: IContext, next: MiddlewareWithContext) {
+    debug("using fallback (not found) middleware");
+    context.res.statusCode = 404;
+    context.res.end(http.STATUS_CODES[404]);
     return Promise.resolve();
 }
 
@@ -127,6 +143,10 @@ export function mount<T extends Context>(path: string,
         if (!routePath.startsWith(targetPath)) {
             return next();
         }
+        // Remove the matched path from the current route. It doesn't matter, 
+        // if it has traling slashes or not, since mount points 
+        // always ignore them, while routers always prefix them, if it's not
+        // already present - It's always consistent.
         let currentRoutePath = routePath.slice(pathLength);
         debug("enter: %s", currentRoutePath);
         ctx.setRoutePath(currentRoutePath);
