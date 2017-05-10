@@ -16,7 +16,11 @@ const debug = debugModule("http-micro:utils");
  * @export
  * @param {Error} err 
  */
-export function defaultErrorHandler(err: Error) {
+export function defaultErrorHandler(err: Error, req: http.IncomingMessage, res: http.ServerResponse) {
+    if (!res.headersSent)
+        res.statusCode = 500;
+    if (!res.finished)
+        res.end();
     const msg = err.stack || err.toString();
     console.error();
     console.error(`http-micro error: ${msg}`);

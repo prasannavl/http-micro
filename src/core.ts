@@ -30,6 +30,7 @@ export interface IContext extends ItemsContainer {
 export type Middleware<T extends IContext> = (context: T, next: MiddlewareWithContext) => MiddlewareResult;
 export type MiddlewareResult = Promise<void>;
 export type MiddlewareWithContext = () => MiddlewareResult;
+export type ErrorHandler = (err: Error, req: http.IncomingMessage, res: http.ServerResponse) => void;
 
 export class ApplicationCore<T extends IContext> implements IApplication {
     middlewares: Middleware<T>[] = [];
@@ -54,15 +55,17 @@ export class ApplicationCore<T extends IContext> implements IApplication {
 
     getRequestListener(): (req: http.IncomingMessage, res: http.ServerResponse) => void {
         const fn = utils.compose(...this.middlewares);
+        
         return (req, res) => {
-            let errorHandler = this._errorHandler || utils.defaultErrorHandler;  
-            let fallbackHandler = this._fallbackHandler || utils.defaultFallbackNotFoundHandler;            
+            let errorHandler = this._errorHandler || utils.defaultErrorHandler;
+            let fallbackHandler = this._fallbackHandler || utils.defaultFallbackNotFoundHandler;
+
             try {
                 let context = this._contextFactory(this, req, res);
                 fn(context, fallbackHandler.bind(null, context, null))
-                    .catch(errorHandler);
+                    .catch((err) => errorHandler(err, req, res));
             } catch (err) {
-                errorHandler(err);
+                errorHandler(err, req, res);
             }
         };
     }
@@ -72,7 +75,7 @@ export class ApplicationCore<T extends IContext> implements IApplication {
         return this;
     }
 
-    setErrorHandler(handler: (err: Error) => void) {
+    setErrorHandler(handler: ErrorHandler) {
         this._errorHandler = handler;
     }
 
