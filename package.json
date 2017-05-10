@@ -10,6 +10,7 @@
     "tsc": "tsc",
     "watch": "tsc -w",
     "test": "echo \"No tests available.\" && exit 0",
+    "prepublishOnly": "npm run build",
     "example": "nodemon --ext ts,tsx,js,jsx --watch ./ --exec ts-node --project ./examples/ ./examples/index.ts",
     "autoplay": "nodemon --ext ts,tsx,js,jsx --watch ./ --exec ts-node --project ./playground/ ./playground/autoplay.ts"
   },
