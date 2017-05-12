@@ -29,11 +29,9 @@ export function defaultErrorHandler(err: Error, req: http.IncomingMessage, res: 
 export function errorToResponse(err: Error, res: http.ServerResponse) {
     let errObj = err as any;
     let status = errObj["status"] || 500;
-    let message = errObj["message"];
     
     if (!res.headersSent) {
         res.statusCode = status;
-        if (message !== undefined) res.statusMessage = message;
     }
     if (!res.finished)
         res.end();
