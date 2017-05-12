@@ -5,6 +5,8 @@ import { Router } from "./router";
 import * as debugModule from "debug";
 import * as net from "net";
 import * as http from "http";
+import * as pathToRegexp from "path-to-regexp";
+import * as createError from "http-errors";
 
 const debug = debugModule("http-micro:utils");
 
@@ -17,15 +19,26 @@ const debug = debugModule("http-micro:utils");
  * @param {Error} err 
  */
 export function defaultErrorHandler(err: Error, req: http.IncomingMessage, res: http.ServerResponse) {
-    if (!res.headersSent)
-        res.statusCode = 500;
-    if (!res.finished)
-        res.end();
+    errorToResponse(err, res);
     const msg = err.stack || err.toString();
     console.error();
     console.error(`http-micro error: ${msg}`);
     console.error();
 }
+
+export function errorToResponse(err: Error, res: http.ServerResponse) {
+    let errObj = err as any;
+    let status = errObj["status"] || 500;
+    let message = errObj["message"];
+    
+    if (!res.headersSent) {
+        res.statusCode = status;
+        if (message !== undefined) res.statusMessage = message;
+    }
+    if (!res.finished)
+        res.end();
+}
+
 
 /**
  * A default fall-back handler that simply ends the request, and returns.
@@ -187,4 +200,26 @@ export function stringify(value: any,
   return replacer || spaces
     ? JSON.stringify(value, replacer, spaces)
     : JSON.stringify(value);
+}
+
+export function createRouteParams(match: RegExpMatchArray, keys: pathToRegexp.Key[], params?: any) {
+    params = params || {};
+
+    var key, param;
+    for (var i = 0; i < keys.length; i++) {
+        key = keys[i];
+        param = match[i + 1];
+        if (!param) continue;
+        params[key.name] = decodeRouteParam(param);
+        if (key.repeat) params[key.name] = params[key.name].split(key.delimiter)
+    }
+    return params;
+}
+
+export function decodeRouteParam(param: string) {
+  try {
+    return decodeURIComponent(param);
+  } catch (_) {
+    throw createError(400, 'failed to decode param "' + param + '"');
+  }
 }
