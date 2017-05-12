@@ -4,12 +4,14 @@ import * as http from "http";
 import * as url from "url";
 import { stringify } from "./utils";
 import { isString } from "./lang";
+import { RouteData } from "./route-data";
 
 export class Context extends NodeContext {
     private _url: url.Url = null;
     private _ipAddresses: string[] = null;
     private _routePath: string = null;
-
+    private _routeData: RouteData = null;
+    
     routeHandled = false;
 
     sendAsJson(data: any,
@@ -194,6 +196,15 @@ export class Context extends NodeContext {
 
     setRoutePath(path: string) {
         this._routePath = path;
+    }
+
+    
+    getRouteData() {
+        return this._routeData || (this._routeData = new RouteData());
+    }
+
+    setRouteData(value: RouteData) {
+        this._routeData = value;
     }
 
     getHttpMethod() {
