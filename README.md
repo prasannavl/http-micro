@@ -82,6 +82,11 @@ router.get("/hello-object", (ctx) => {
     return Promise.resolve();
 });
 
+router.get("/hello-data/:id", (ctx, next) => {
+    ctx.sendAsJson(ctx.getRouteData().params);
+    return Promise.resolve();
+});
+
 let router1 = new micro.Router();
 
 router1.get("/hello", (ctx) => {

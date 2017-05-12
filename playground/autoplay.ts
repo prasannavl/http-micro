@@ -8,7 +8,7 @@ function run() {
         host: "localhost",
         port: 8000,
         protocol: "http:",
-        path: "/",
+        path: "/hello-data/100",
         headers: {
         }
     } as http.RequestOptions;
@@ -39,13 +39,41 @@ class Server {
     
     setupMiddleware() {
         let app = this.server;
+        app.use(micro.mount("/", this.getRouter(), "root"));
+    }
 
-        app.use((ctx, next) => {
-            const res = ctx.res;
-            ctx.setHeader("some", ["one", "two", "thre"] as any);
-            ctx.sendAsJson({ message: "ok" });
+    private getRouter() {
+        let router = new micro.Router();
+
+        router.get("/hello", (ctx, next) => {
+            ctx.sendText("Hello route!");
             return Promise.resolve();
         });
+
+        router.get("/hello-string", (ctx, next) => {
+            ctx.sendText("Hello string!");
+            return Promise.resolve();
+        });
+
+        router.get("/hello-data/:id", (ctx, next) => {
+            ctx.sendAsJson(ctx.getRouteData());
+            return Promise.resolve();
+        });
+
+        
+        router.get(/reg(ex)per/i, (ctx, next) => {
+            ctx.sendAsJson(ctx.getRouteData());
+            return Promise.resolve();
+        });
+
+        router.get("/hello-object", (ctx, next) => {
+            ctx.sendAsJson({ message: "Hello world!" });
+            return Promise.resolve();
+        });
+
+
+
+        return router;
     }
 
     run(port: number, host = "localhost", ...args: any[]) {
