@@ -19,7 +19,8 @@ export class Context extends NodeContext {
         spaces?: string | number) {
         let res = this.res;
         this.setHeader("Content-Type", "application/json", false);
-        this.res.end(stringify(data, replacer, spaces));
+        let payload = stringify(data, replacer, spaces);
+        this.res.end(payload);
     }
 
     sendText(text: string) {
@@ -197,10 +198,13 @@ export class Context extends NodeContext {
     setRoutePath(path: string) {
         this._routePath = path;
     }
-
     
     getRouteData() {
         return this._routeData || (this._routeData = new RouteData());
+    }
+
+    getRouteParams() {
+        return this.getRouteData().params;
     }
 
     setRouteData(value: RouteData) {
