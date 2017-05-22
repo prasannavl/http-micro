@@ -44,7 +44,7 @@ export class Context extends NodeContext {
 
         return {
             accepts: this._accepts,
-            typeis: typeis,
+            typeis: typeis as any,
         };
     }
 
