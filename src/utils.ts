@@ -29,8 +29,12 @@ export function defaultErrorHandler(err: Error, req: http.IncomingMessage, res: 
 export function errorToResponse(err: Error, res: http.ServerResponse) {
     let errObj = err as any;
     let status = Number(errObj["status"]);
-    if (status > 599 || status < 400)
+    if (!status) {
         status = 500;
+    }
+    else if (status > 599 || status < 400) {
+        status = 500;
+    }
     
     if (!res.headersSent) {
         res.statusCode = status;
