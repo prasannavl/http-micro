@@ -107,7 +107,13 @@ export function createAsyncParser(parser: Parser, errorExpose = false) {
         return new Promise((resolve, reject) => {
             parser(req, (err, body) => {
                 if (err) {
-                    let errObj = errorExpose ? new httpError.BadRequest(err.message) : new httpError.BadRequest();
+                    let errObj;
+                    if (err.status != null) {
+                        errObj = new httpError.BadRequest();
+                        (errObj as any)["cause"] = err;
+                    } else {
+                        errObj = err;
+                    }
                     reject(errObj);
                 } else {
                     resolve(body);
