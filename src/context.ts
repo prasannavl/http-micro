@@ -6,6 +6,8 @@ import { stringify } from "./utils";
 import { isString } from "./lang";
 import { RouteData } from "./route-data";
 import * as bodyParser from "./body-parser";
+import * as typeis from "type-is";
+import * as accepts from "accepts";
 
 export class Context extends NodeContext {
     private _url: url.Url = null;
@@ -13,20 +15,41 @@ export class Context extends NodeContext {
     private _routePath: string = null;
     private _routeData: RouteData = null;
     private _requestBody: any = null;
-    
+    private _accepts: accepts.Accepts = null;
+
     routeHandled = false;
+
+    getResponseHeaders() {
+        return (this.res as any).getHeaders();
+    }
 
     sendAsJson(data: any,
         replacer?: (key: string, value: any) => any,
         spaces?: string | number) {
-        let res = this.res;
-        this.setHeader("Content-Type", "application/json", false);
+        this.setContentType("application/json");
         let payload = stringify(data, replacer, spaces);
         this.res.end(payload);
     }
 
+    setContentType(contentType: string, force = false) {
+        const ContentTypeKey = "Content-Type";
+        if (!this.res.headersSent)
+            this.setHeader(ContentTypeKey, contentType, force);
+    }
+
+    getTypeInfo() {
+        if (this._accepts == null) {
+            this._accepts = accepts(this.req);
+        }
+
+        return {
+            accepts: this._accepts,
+            typeis: typeis,
+        };
+    }
+
     sendText(text: string) {
-        this.setHeader("Content-Type", "text/plain", false);
+        this.setContentType("text/plain");
         this.res.end(text);
     }
 
@@ -63,8 +86,10 @@ export class Context extends NodeContext {
     }
 
     send(body: any, headers?: any, code = 200) {
-        this.res.writeHead(code, null, headers);
-        // TODO: Do proper content negotiation here.
+        if (headers) {
+            Object.assign(this.getResponseHeaders(), headers);
+        }
+        this.setStatus(code);
         isString(body) ?
             this.sendText(body) :
             this.sendAsJson(body);
