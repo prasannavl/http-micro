@@ -3,14 +3,13 @@ import * as rawBody from "raw-body";
 import * as qs from "querystring";
 import * as typeis from "type-is";
 import * as httpError from "http-errors";
-import { IContext } from "./core";
 
 export type ParserCallback = (error: rawBody.RawBodyError, body?: string) => void;
-export type Parser = (req: http.IncomingMessage, res: http.ServerResponse, callback: ParserCallback) => void;
+export type Parser = (req: http.IncomingMessage, callback: ParserCallback) => void;
 const defaultLimit = 1024 * 1024 / 2; // 512Kb
 
 export function rawBodyParserFactory(opts: rawBody.Options) {
-    return function rawParser(req: http.IncomingMessage, res: http.ServerResponse, callback: ParserCallback) {
+    return function rawParser(req: http.IncomingMessage, callback: ParserCallback) {
 
         var limit = opts.limit || defaultLimit;
         var contentLength = req.headers ?
@@ -31,8 +30,8 @@ export function jsonBodyParserFactory(opts: JsonBodyParserOpts, defaultParser?: 
     let rawParser = defaultParser || rawBodyParserFactory(opts);
     let reviver = opts.reviver;
 
-    return function jsonParser(req: http.IncomingMessage, res: http.ServerResponse, callback: ParserCallback) {
-        rawParser(req, res, function (err, body) {
+    return function jsonParser(req: http.IncomingMessage, callback: ParserCallback) {
+        rawParser(req, function (err, body) {
             if (err) {
                 return callback(err);
             }
@@ -61,8 +60,8 @@ export function formBodyParserFactory(opts: FormBodyParserOpts, defaultParser?: 
     let eq = opts.eq;
     let options = opts.options;
 
-    return function jsonParser(req: http.IncomingMessage, res: http.ServerResponse, callback: ParserCallback) {
-        rawParser(req, res, function (err, body) {
+    return function jsonParser(req: http.IncomingMessage, callback: ParserCallback) {
+        rawParser(req, function (err, body) {
             if (err) {
                 return callback(err);
             }
@@ -85,47 +84,28 @@ export function anyBodyParserFactory(opts: AnyParserOptions, defaultParser?: Par
     let formParser = formBodyParserFactory(opts, rawParser);
     let types = ["json", "urlencoded"];
 
-    return function anyBodyParser(req: http.IncomingMessage, res: http.ServerResponse, callback: ParserCallback) {
+    return function anyBodyParser(req: http.IncomingMessage, callback: ParserCallback) {
         let t = typeis(req, types);
         switch (t) {
             case types[0]: {
-                jsonParser(req, res, callback);
+                jsonParser(req, callback);
                 break;
             }
             case types[1]: {
-                formParser(req, res, callback);
+                formParser(req, callback);
                 break;
             }
             default: {
-                rawParser(req, res, callback);
+                rawParser(req, callback);
             }
         }
     };
 }
 
-export function parserFactory(opts: AnyParserOptions) {
-    let parser = anyBodyParserFactory(opts);
-    return function parse(context: IContext): Promise<any> {
-        let req = context.req;
-        let res = context.res;
+export function createAsyncParser(parser: Parser, errorExpose = false) {
+    return function parse(req: http.IncomingMessage): Promise<any> {
         return new Promise((resolve, reject) => {
-            parser(req, res, (err, body) => {
-                if (err) {
-                    reject(new httpError.BadRequest(err.message));
-                } else {
-                    resolve(body);
-                }
-            });
-        });
-    }
-}
-
-export function createAsyncParser(parser: Parser = anyBodyParserFactory({}), errorExpose = false) {
-    return function parse(context: IContext): Promise<any> {
-        let req = context.req;
-        let res = context.res;
-        return new Promise((resolve, reject) => {
-            parser(req, res, (err, body) => {
+            parser(req, (err, body) => {
                 if (err) {
                     let errObj = errorExpose ? new httpError.BadRequest(err.message) : new httpError.BadRequest();
                     reject(errObj);
@@ -135,4 +115,9 @@ export function createAsyncParser(parser: Parser = anyBodyParserFactory({}), err
             });
         });
     }
+}
+
+export function parseBody<T>(req: http.IncomingMessage, parser: Parser = anyBodyParserFactory({})) {
+    let finalParser = createAsyncParser(parser);
+    return finalParser(req) as Promise<T>;
 }

@@ -5,12 +5,14 @@ import * as url from "url";
 import { stringify } from "./utils";
 import { isString } from "./lang";
 import { RouteData } from "./route-data";
+import * as bodyParser from "./body-parser";
 
 export class Context extends NodeContext {
     private _url: url.Url = null;
     private _ipAddresses: string[] = null;
     private _routePath: string = null;
     private _routeData: RouteData = null;
+    private _requestBody: any = null;
     
     routeHandled = false;
 
@@ -254,6 +256,17 @@ export class Context extends NodeContext {
 
     markRouteHandled() {
         this.routeHandled = true;
+    }
+
+    getRequestBody<T>(parser?: bodyParser.Parser) {
+        if (this._requestBody === null) {
+            return bodyParser.parseBody<T>(this.req, parser)
+                .then(body => {
+                    this._requestBody = body;
+                    return body;
+                });
+        }
+        return Promise.resolve(this._requestBody);
     }
 }
 

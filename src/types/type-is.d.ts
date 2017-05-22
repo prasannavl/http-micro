@@ -9,4 +9,3 @@ declare module "type-is" {
     function TypeIs(request: http.IncomingMessage, types: Array<string>): any;
     export = TypeIs;
 }
-
