@@ -102,7 +102,7 @@ export function anyBodyParserFactory(opts: AnyParserOptions, defaultParser?: Par
     };
 }
 
-export function createAsyncParser(parser: Parser, errorExpose = false) {
+export function createAsyncParser(parser: Parser) {
     return function parse(req: http.IncomingMessage): Promise<any> {
         return new Promise((resolve, reject) => {
             parser(req, (err, body) => {
