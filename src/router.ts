@@ -7,6 +7,8 @@ import * as pathToRegexp from "path-to-regexp";
 const debug = debugModule("http-micro:router");
 
 export type MatchResult<T extends Context> = { handler: Middleware<T>, data: RegExpMatchArray, params: any };
+export type Route = string | RegExp;
+export class PathRouteMap<T extends Context> extends Map<string, Middleware<T>> { }
 type RegExpRoute<T extends Context> = { test: RegExp, middleware: Middleware<T>, paramKeys: any };
 
 export class Router<T extends Context> {
@@ -191,9 +193,9 @@ export class Router<T extends Context> {
         let routeMap = routes.get(targetPath);
         if (!routeMap) return null;
         let result = routeMap.get(method);
-        if (result) return { handler: result as Middleware<T>, data: null, params: null };
+        if (result) return { handler: result, data: null, params: null };
         result = routeMap.get(HttpMethod.Any);
-        if (result) return { handler: result as Middleware<T>, data: null, params: null };
+        if (result) return { handler: result, data: null, params: null };
         return null;
     }
 
@@ -273,9 +275,6 @@ export class Router<T extends Context> {
             compose(...middlewares, routeHandler) : routeHandler;
     }
 }
-
-export type Route = string | RegExp;
-export class PathRouteMap<T extends Context> extends Map<string, Middleware<T>> { }
 
 export class HttpMethod {
     static Any = "*";
