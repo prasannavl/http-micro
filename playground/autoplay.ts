@@ -8,7 +8,7 @@ function run() {
         host: "localhost",
         port: 8000,
         protocol: "http:",
-        path: "/hello-data/100",
+        path: "/test",
         headers: {
         }
     } as http.RequestOptions;
@@ -71,7 +71,14 @@ class Server {
             return Promise.resolve();
         });
 
+        router.get("/test", (ctx, next) => {
+            let res = ctx.res;
+            res.setHeader('Foo', 'bar');
+            console.log((res as any).getHeaders());
+            res.end();
 
+            return Promise.resolve();
+        });
 
         return router;
     }
