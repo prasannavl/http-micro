@@ -53,7 +53,6 @@ export function errorToResponse(err: Error, res: http.ServerResponse) {
  * @returns {Promise} Resolved Promise
  */
 export function defaultFallbackOkHandler(context: IContext, next: MiddlewareWithContext) {
-    debug("using fallback (ok) middleware");
     context.res.end();
     return Promise.resolve();
 }
@@ -67,12 +66,10 @@ export function defaultFallbackOkHandler(context: IContext, next: MiddlewareWith
  * @returns {Promise} Resolved Promise
  */
 export function defaultFallbackNotFoundHandler(context: IContext, next: MiddlewareWithContext) {
-    debug("using fallback (not found) middleware");
     context.res.statusCode = 404;
-    context.res.end(http.STATUS_CODES[404]);
+    context.res.end();
     return Promise.resolve();
 }
-
 
 export function defaultClientErrorHandler(err: any, socket: net.Socket) {
     debug("client error: closing socket with bad request");
