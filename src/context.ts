@@ -23,6 +23,17 @@ export class Context extends NodeContext {
         return (this.res as any).getHeaders();
     }
 
+    setHeaders(headers: any) {
+        if (!headers) return;
+        // Do the same thing that writeHead does, to ensure compatibility.
+        let keys = Object.keys(headers);
+        let res = this.res;
+        for (let i = 0; i < keys.length; i++) {
+            let key = keys[i];
+            res.setHeader(key, headers[key]);
+        }
+    }
+
     sendAsJson(data: any,
         replacer?: (key: string, value: any) => any,
         spaces?: string | number) {
@@ -53,7 +64,8 @@ export class Context extends NodeContext {
         this.res.end(text);
     }
 
-    sendStatus(code: number, message?: string) {
+    sendStatus(code: number, message?: string, headers?: any) {
+        this.setHeaders(headers);        
         this.setStatus(code, message);
         this.res.end();
     }
@@ -72,23 +84,21 @@ export class Context extends NodeContext {
         this.sendStatus(205);
     }
 
-    sendMethodNotAllowed(allowedMethods: string[], reason = http.STATUS_CODES[405]) {
+    sendMethodNotAllowed(allowedMethods: string[], reason: string = null) {
         if (!allowedMethods)
             throw new Error("allowed methods must be present");
         let headers = {
             "Allow": allowedMethods.join(", ")
         };
-        this.send(reason, headers, 405);
+        this.sendStatus(405, reason, headers);
     }
 
-    sendNotFound(reason = http.STATUS_CODES[404]) {
+    sendNotFound(reason: string = null) {
         this.send(reason, null, 404);
     }
 
     send(body: any, headers?: any, code = 200) {
-        if (headers) {
-            Object.assign(this.getResponseHeaders(), headers);
-        }
+        this.setHeaders(headers);
         this.setStatus(code);
         isString(body) ?
             this.sendText(body) :
