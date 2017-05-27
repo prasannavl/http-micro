@@ -1,6 +1,6 @@
 {
   "name": "http-micro",
-  "version": "1.9.1",
+  "version": "1.9.2",
   "description": "Micro-framework on top of node's http module",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
