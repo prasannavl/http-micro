@@ -18,7 +18,7 @@ const debug = debugModule("http-micro:utils");
  * @export
  * @param {Error} err 
  */
-export function defaultErrorHandler(err: Error, req: http.IncomingMessage, res: http.ServerResponse, context: IContext) {
+export function defaultErrorHandler(err: Error, req: http.IncomingMessage, res: http.ServerResponse) {
     errorToResponse(err, res);
     const msg = err.stack || err.toString();
     console.error();
