@@ -293,7 +293,7 @@ export class Context extends NodeContext {
         this.routeHandled = true;
     }
 
-    getRequestBody<T>(parser?: bodyParser.Parser) {
+    getRequestBody<T>(parser?: bodyParser.Parser): Promise<T> {
         if (this._requestBody === null) {
             return bodyParser.parseBody<T>(this.req, parser)
                 .then(body => {
