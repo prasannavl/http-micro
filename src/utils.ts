@@ -29,13 +29,10 @@ export function defaultErrorHandler(err: Error, req: http.IncomingMessage, res: 
 export function errorToResponse(err: Error, res: http.ServerResponse) {
     let errObj = err as any;
     let status = Number(errObj["status"]);
-    if (!status) {
+    // Check if the status is a 4xx or 5xx status code.    
+    if (!Number.isInteger(status) || status > 599 || status < 400) {
         status = 500;
     }
-    else if (status > 599 || status < 400) {
-        status = 500;
-    }
-    
     if (!res.headersSent) {
         res.statusCode = status;
     }

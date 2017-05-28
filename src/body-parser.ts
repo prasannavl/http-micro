@@ -108,11 +108,13 @@ export function createAsyncParser(parser: Parser) {
             parser(req, (err, body) => {
                 if (err) {
                     let errObj;
-                    if (err.status != null) {
+                    let status = Number(err["status"]);
+                    // Check if it's a 4xx status code.
+                    if (Number.isInteger(status) && status > 399 && status < 500) {
+                        errObj = err;
+                    } else {
                         errObj = new httpError.BadRequest();
                         (errObj as any)["cause"] = err;
-                    } else {
-                        errObj = err;
                     }
                     reject(errObj);
                 } else {
