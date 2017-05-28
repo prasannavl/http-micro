@@ -34,14 +34,6 @@ export class Context extends NodeContext {
         }
     }
 
-    sendAsJson(data: any,
-        replacer?: (key: string, value: any) => any,
-        spaces?: string | number) {
-        this.setContentType("application/json");
-        let payload = stringify(data, replacer, spaces);
-        this.res.end(payload);
-    }
-
     setContentType(contentType: string, force = false) {
         const ContentTypeKey = "Content-Type";
         if (!this.res.headersSent)
@@ -59,42 +51,51 @@ export class Context extends NodeContext {
         };
     }
 
-    sendText(text: string) {
-        this.setContentType("text/plain");
-        this.res.end(text);
-    }
-
-    sendStatus(code: number, message?: string, headers?: any) {
-        this.setHeaders(headers);        
-        this.setStatus(code, message);
-        this.res.end();
-    }
-
     setStatus(code: number, message?: string) {
         this.res.statusCode = code;
         if (message)
             this.res.statusMessage = message;
     }
 
-    sendNoContent() {
-        this.sendStatus(204);
+    sendStatus(code: number, message?: string, headers?: any) {
+        this.setHeaders(headers);
+        this.setStatus(code, message);
+        this.res.end();
     }
 
-    sendResetContent() {
-        this.sendStatus(205);
+    sendNoContent(headers?: any) {
+        this.sendStatus(204, null, headers);
     }
 
-    sendMethodNotAllowed(allowedMethods: string[], reason: string = null) {
+    sendResetContent(headers?: any) {
+        this.sendStatus(205, null, headers);
+    }
+
+    sendBadRequest(body: any, headers?: any) {
+        this.send(body, headers, 400);
+    }
+
+    sendMethodNotAllowed(allowedMethods: string[], reason: string = null, headers?: any) {
         if (!allowedMethods)
-            throw new Error("allowed methods must be present");
-        let headers = {
-            "Allow": allowedMethods.join(", ")
-        };
-        this.sendStatus(405, reason, headers);
+            throw new Error("allowed methods parameter is required");
+        let mergedHeaders;
+        let allowHeaders = {
+            "Allow": allowedMethods.join(", "),
+        }
+        if (headers) {
+            mergedHeaders = Object.assign({}, headers, allowHeaders);
+        } else {
+            mergedHeaders = allowHeaders;
+        }
+        this.sendStatus(405, reason, mergedHeaders);
     }
 
-    sendNotFound(reason: string = null) {
-        this.send(reason, null, 404);
+    sendNotFound(reason: string = null, headers?: any) {
+        this.send(reason, headers, 404);
+    }
+
+    sendForbidden(reason: any, headers?: any) {
+        this.send(reason, headers, 401);
     }
 
     send(body: any, headers?: any, code = 200) {
@@ -105,8 +106,17 @@ export class Context extends NodeContext {
             this.sendAsJson(body);
     }
 
-    sendForbidden(reason: any) {
-        this.send(reason, null, 401);
+    sendText(text: string) {
+        this.setContentType("text/plain");
+        this.res.end(text);
+    }
+
+    sendAsJson(data: any,
+        replacer?: (key: string, value: any) => any,
+        spaces?: string | number) {
+        this.setContentType("application/json");
+        let payload = stringify(data, replacer, spaces);
+        this.res.end(payload);
     }
 
     setHeader(key: string, value: string, replace = true) {
@@ -220,7 +230,7 @@ export class Context extends NodeContext {
     setRoutePath(path: string) {
         this._routePath = path;
     }
-    
+
     getRouteData() {
         return this._routeData || (this._routeData = new RouteData());
     }
