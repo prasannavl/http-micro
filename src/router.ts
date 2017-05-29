@@ -1,8 +1,9 @@
 import { IContext, Middleware, MiddlewareWithContext } from "./core";
 import { Context } from "./context";
-import { compose, createRouteParams } from "./utils";
+import { compose } from "./utils";
 import * as debugModule from "debug";
 import * as pathToRegexp from "path-to-regexp";
+import * as createError from "http-errors";
 
 const debug = debugModule("http-micro:router");
 
@@ -35,7 +36,7 @@ export class Router<T extends Context> {
      * @param route 
      * @param handler
      */
-    any(route: Route, handler: Middleware<T>) {
+    all(route: Route, handler: Middleware<T>) {
         return this.define(route, HttpMethod.Any, handler);
     }
 
@@ -121,6 +122,11 @@ export class Router<T extends Context> {
      */
     define(route: Route, method: string, handler: Middleware<T>) {
         let m = method.toString();
+        if (m === HttpMethod.Any) {
+            HttpMethod.CommonMethods
+                .forEach(x => this.define(route, x, handler));
+            return this;
+        }
         if (typeof route === "string") {
             if (route.indexOf(":") === -1)
                 this._defineStringRoute(route, m, handler);
@@ -184,9 +190,9 @@ export class Router<T extends Context> {
             this._matchRegExpRoutes(this._regExpRoutes, method, targetPath);
     }
 
-/**
- * Path routes are stored as TargetPath ---> METHOD ---> Handler
- */
+    /**
+     * Path routes are stored as TargetPath ---> METHOD ---> Handler
+     */
     private _matchPathRoutes(routes: Map<string, PathRouteMap<T>>, method: string, targetPath: string)
         : MatchResult<T> {
         if (!routes) return null;
@@ -194,22 +200,17 @@ export class Router<T extends Context> {
         if (!routeMap) return null;
         let result = routeMap.get(method);
         if (result) return { handler: result, data: null, params: null };
-        result = routeMap.get(HttpMethod.Any);
-        if (result) return { handler: result, data: null, params: null };
         return null;
     }
 
-/**
- * RegExp routes are stored as METHOD ---> RegExp ---> Handler
- */    
+    /**
+     * RegExp routes are stored as METHOD ---> RegExp ---> Handler
+     */
     private _matchRegExpRoutes(routes: Map<string, Array<RegExpRoute<T>>>, method: string, targetPath: string)
         : MatchResult<T> {
         if (!routes) return null;
         let regExpList = routes.get(method);
         let result = this._matchRegExpRoute(regExpList, targetPath);
-        if (result) return result;
-        regExpList = routes.get(HttpMethod.Any);
-        result = this._matchRegExpRoute(regExpList, targetPath);
         if (result) return result;
         return null;
     }
@@ -277,7 +278,7 @@ export class Router<T extends Context> {
 }
 
 export class HttpMethod {
-    static Any = "*";
+
     static Get = "GET";
     static Head = "HEAD";
     static Post = "POST";
@@ -286,4 +287,36 @@ export class HttpMethod {
     static Patch = "PATCH";
     static Options = "OPTIONS";
     static Trace = "TRACE";
+
+    static CommonMethods = [
+        HttpMethod.Get,
+        HttpMethod.Head,
+        HttpMethod.Post,
+        HttpMethod.Put,
+        HttpMethod.Delete,
+        HttpMethod.Patch];
+    
+    static Any = "*";
+}
+
+export function createRouteParams(match: RegExpMatchArray, keys: pathToRegexp.Key[], params?: any) {
+    params = params || {};
+
+    var key, param;
+    for (var i = 0; i < keys.length; i++) {
+        key = keys[i];
+        param = match[i + 1];
+        if (!param) continue;
+        params[key.name] = decodeRouteParam(param);
+        if (key.repeat) params[key.name] = params[key.name].split(key.delimiter)
+    }
+    return params;
+}
+
+export function decodeRouteParam(param: string) {
+    try {
+        return decodeURIComponent(param);
+    } catch (_) {
+        throw createError(400, 'failed to decode param "' + param + '"');
+    }
 }

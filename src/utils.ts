@@ -5,8 +5,6 @@ import { Router } from "./router";
 import * as debugModule from "debug";
 import * as net from "net";
 import * as http from "http";
-import * as pathToRegexp from "path-to-regexp";
-import * as createError from "http-errors";
 
 const debug = debugModule("http-micro:utils");
 
@@ -198,26 +196,4 @@ export function stringify(value: any,
   return replacer || spaces
     ? JSON.stringify(value, replacer, spaces)
     : JSON.stringify(value);
-}
-
-export function createRouteParams(match: RegExpMatchArray, keys: pathToRegexp.Key[], params?: any) {
-    params = params || {};
-
-    var key, param;
-    for (var i = 0; i < keys.length; i++) {
-        key = keys[i];
-        param = match[i + 1];
-        if (!param) continue;
-        params[key.name] = decodeRouteParam(param);
-        if (key.repeat) params[key.name] = params[key.name].split(key.delimiter)
-    }
-    return params;
-}
-
-export function decodeRouteParam(param: string) {
-  try {
-    return decodeURIComponent(param);
-  } catch (_) {
-    throw createError(400, 'failed to decode param "' + param + '"');
-  }
 }
