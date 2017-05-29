@@ -37,7 +37,7 @@ export class Router<T extends Context> {
      * @param handler
      */
     all(route: Route, handler: Middleware<T>) {
-        return this.define(route, HttpMethod.Any, handler);
+        return this.define(route, HttpMethod.Wildcard, handler);
     }
 
     /**
@@ -122,7 +122,7 @@ export class Router<T extends Context> {
      */
     define(route: Route, method: string, handler: Middleware<T>) {
         let m = method.toString();
-        if (m === HttpMethod.Any) {
+        if (m === HttpMethod.Wildcard) {
             HttpMethod.CommonMethods
                 .forEach(x => this.define(route, x, handler));
             return this;
@@ -296,7 +296,7 @@ export class HttpMethod {
         HttpMethod.Delete,
         HttpMethod.Patch];
     
-    static Any = "*";
+    static Wildcard = "*";
 }
 
 export function createRouteParams(match: RegExpMatchArray, keys: pathToRegexp.Key[], params?: any) {
