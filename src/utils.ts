@@ -25,17 +25,52 @@ export function defaultErrorHandler(err: Error, req: http.IncomingMessage, res: 
 }
 
 export function errorToResponse(err: Error, res: http.ServerResponse) {
-    let errObj = err as any;
-    let status = Number(errObj["status"]);
-    // Check if the status is a 4xx or 5xx status code.    
-    if (!Number.isInteger(status) || status > 599 || status < 400) {
-        status = 500;
-    }
+    let status = getHttpErrorStatusCode(err);
     if (!res.headersSent) {
         res.statusCode = status;
     }
     if (!res.finished)
         res.end();
+}
+
+/**
+ * Check if the status is a 4xx or 5xx status code.
+ */
+export function isHttpErrorStatusCode(code: number) {
+    return Number.isInteger(code) && code > 399 && code < 600;
+}
+
+/**
+ * Check if the 'statusCode' property of error object
+ * is a valid 4xx or 5xx status code. Return the code
+ * if it is, or else return 500.
+ */
+export function getHttpErrorStatusCode(err: Error) {
+    let errObj = err as any;
+    let status = errObj["statusCode"];
+    if (!isHttpErrorStatusCode(status)) {
+        return 500;
+    }
+    return status;
+}
+
+/**
+ * Check if an error object is a valid http error, by
+ * testing if 'statusCode' property of the error object
+ * is a valid 4xx or 5xx status code.
+ */
+export function isHttpError(err: Error) {
+    let errObj = err as any;
+    let status = errObj["statusCode"];
+    return isHttpErrorStatusCode(status);
+}
+
+/**
+ * Wrap an error into another error using the defacto
+ * 'cause' property.
+ */
+export function wrapError(targetError: Error, originalError: Error) {
+    (targetError as any)["cause"] = originalError;
 }
 
 

@@ -3,6 +3,7 @@ import * as rawBody from "raw-body";
 import * as qs from "querystring";
 import * as typeis from "type-is";
 import * as httpError from "http-errors";
+import { isHttpError, wrapError } from "./utils";
 
 export type ParserCallback = (error: rawBody.RawBodyError, body?: string) => void;
 export type Parser = (req: http.IncomingMessage, callback: ParserCallback) => void;
@@ -108,13 +109,11 @@ export function createAsyncParser(parser: Parser) {
             parser(req, (err, body) => {
                 if (err) {
                     let errObj;
-                    let status = Number(err["status"]);
-                    // Check if it's a 4xx status code.
-                    if (Number.isInteger(status) && status > 399 && status < 500) {
+                    if (isHttpError(err)) {
                         errObj = err;
                     } else {
                         errObj = new httpError.BadRequest();
-                        (errObj as any)["cause"] = err;
+                        wrapError(errObj, err);
                     }
                     reject(errObj);
                 } else {
