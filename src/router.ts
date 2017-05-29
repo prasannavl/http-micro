@@ -5,27 +5,76 @@ import * as debugModule from "debug";
 import * as pathToRegexp from "path-to-regexp";
 import * as createError from "http-errors";
 
-const debug = debugModule("http-micro:router");
+export type PathRouteMap<T extends Context> = Map<string, RouteDescriptor<T>>;
+export type RegExpRouteMap<T extends Context> = Array<RegExpRouteDescriptor<T>>;
 
-export type MatchResult<T extends Context> = { handler: Middleware<T>, data: RegExpMatchArray, params: any };
+export class RouteDefinition<T extends Context> {
+    constructor(public handler: Middleware<T>) {}
+}
+
+export class RegExpRouteDefinition<T extends Context> extends RouteDefinition<T> {
+    constructor(handler: Middleware<T>, public paramKeys: any) {
+        super(handler);
+    }
+}
+
+export class RouteDefinitionMap<T extends Context> {
+    [key: string]: RouteDefinition<T>;
+}
+
+export class RegExpRouteDefinitionMap<T extends Context> extends RouteDefinitionMap<T> {
+    [key: string]: RegExpRouteDefinition<T>;
+}
+
+export interface IRouteDescriptor<T extends Context> {
+    path: string;
+    definition: RouteDefinitionMap<T> | RegExpRouteDefinitionMap<T>;
+}
+
+export class RouteDescriptor<T extends Context> implements IRouteDescriptor<T> {
+    definition: RouteDefinitionMap<T>;
+
+    constructor(public path: string) {
+        this.definition = new RouteDefinitionMap<T>();
+    }
+}
+
+export class RegExpRouteDescriptor<T extends Context> implements IRouteDescriptor<T> {
+    definition: RegExpRouteDefinitionMap<T>;
+
+    constructor(public path: string, public test: RegExp) {
+        this.definition = new RegExpRouteDefinitionMap<T>();        
+    }
+}
+
+export interface MatchResult<T extends Context> {
+    route: RouteDefinition<T>,
+    descriptor: RouteDescriptor<T>,
+    data: RegExpMatchArray, params: any
+}
+
+export interface RegExpMatchResult<T extends Context> extends MatchResult<T> {
+    route: RegExpRouteDefinition<T>,
+    descriptor: RegExpRouteDescriptor<T>
+}
+
 export type Route = string | RegExp;
-export class PathRouteMap<T extends Context> extends Map<string, Middleware<T>> { }
-type RegExpRoute<T extends Context> = { test: RegExp, middleware: Middleware<T>, paramKeys: any };
+
 
 export class Router<T extends Context> {
 
     static PathMatchOpts: pathToRegexp.RegExpOptions = { strict: true, sensitive: true };
 
-    private _pathRoutes: Map<string, PathRouteMap<T>>;
-    private _regExpRoutes: Map<string, Array<RegExpRoute<T>>>;
+    private _pathRoutes: PathRouteMap<T>;
+    private _regExpRoutes: RegExpRouteMap<T>;
     private _middlewares: Middleware<T>[];
 
     private _getPathRoutes() {
-        return this._pathRoutes || (this._pathRoutes = new Map<string, PathRouteMap<T>>());
+        return this._pathRoutes || (this._pathRoutes = new Map<string, RouteDescriptor<T>>());
     }
 
     private _getRegExpRoutes() {
-        return this._regExpRoutes || (this._regExpRoutes = new Map<string, Array<RegExpRoute<T>>>());
+        return this._regExpRoutes || (this._regExpRoutes = new Array<RegExpRouteDescriptor<T>>());
     }
 
     /**
@@ -123,7 +172,7 @@ export class Router<T extends Context> {
     define(route: Route, method: string, handler: Middleware<T>) {
         let m = method.toString();
         if (m === HttpMethod.Wildcard) {
-            HttpMethod.CommonMethods
+            HttpMethod.ActionMethods
                 .forEach(x => this.define(route, x, handler));
             return this;
         }
@@ -133,38 +182,46 @@ export class Router<T extends Context> {
             else
                 this._definePathMatchRoute(route, m, handler);
         } else {
-            this._defineRegExpRoute(route, m, handler, null);
+            this._defineRegExpRoute(route, m, handler, null, null);
         }
         return this;
-    }
-
-    private _definePathMatchRoute(route: string, method: string, handler: Middleware<T>) {
-        let keys: pathToRegexp.Key[] = [];
-        let re = pathToRegexp(route, keys, Router.PathMatchOpts);
-        this._defineRegExpRoute(re, method, handler, keys);
     }
 
     private _defineStringRoute(route: string, method: string, handler: Middleware<T>) {
         let pathRoutes = this._getPathRoutes();
         let targetRoute = route.startsWith("/") ? route : "/" + route;
         let existing = pathRoutes.get(targetRoute);
-        if (existing) {
-            existing.set(method, handler);
-        } else {
-            let m = new PathRouteMap<T>();
-            m.set(method, handler);
-            pathRoutes.set(targetRoute, m);
+        if (!existing) {
+            existing = new RouteDescriptor<T>(route);
+            pathRoutes.set(targetRoute, existing);
+        }
+        existing.definition[method] = new RouteDefinition(handler);
+        // Assign a HEAD route automatically, if the current definition is for GET,
+        // and a previous HEAD route doesn't exist for the current path.
+        if (method === HttpMethod.Get && !existing.definition[HttpMethod.Head]) {
+            existing.definition[HttpMethod.Head] = new RouteDefinition(handler);
         }
     }
 
-    private _defineRegExpRoute(route: RegExp, method: string, handler: Middleware<T>, paramKeys: pathToRegexp.Key[]) {
+    private _definePathMatchRoute(route: string, method: string, handler: Middleware<T>) {
+        let keys: pathToRegexp.Key[] = [];
+        let re = pathToRegexp(route, keys, Router.PathMatchOpts);
+        this._defineRegExpRoute(re, method, handler, route, keys);
+    }
+
+    private _defineRegExpRoute(route: RegExp, method: string, handler: Middleware<T>,
+        path: string, paramKeys: pathToRegexp.Key[]) {
         let routes = this._getRegExpRoutes();
-        let methodRoutes = routes.get(method);
-        if (!methodRoutes) {
-            methodRoutes = new Array<RegExpRoute<T>>();
-            routes.set(method, methodRoutes);
+        let existing = routes.find(x => x.test.source === route.source);
+        if (!existing) {
+            existing = new RegExpRouteDescriptor<T>(path || route.source, route);
         }
-        methodRoutes.push({ test: route, middleware: handler, paramKeys });
+        existing.definition[method] = new RegExpRouteDefinition<T>(handler, paramKeys);
+        // Assign a HEAD route automatically, if the current definition is for GET,
+        // and a previous HEAD route doesn't exist for the current path.
+        if (method === HttpMethod.Get && !existing.definition[HttpMethod.Head]) {
+            existing.definition[HttpMethod.Head] = new RegExpRouteDefinition(handler, paramKeys);
+        }
     }
 
     /**
@@ -190,41 +247,30 @@ export class Router<T extends Context> {
             this._matchRegExpRoutes(this._regExpRoutes, method, targetPath);
     }
 
-    /**
-     * Path routes are stored as TargetPath ---> METHOD ---> Handler
-     */
-    private _matchPathRoutes(routes: Map<string, PathRouteMap<T>>, method: string, targetPath: string)
+    private _matchPathRoutes(routes: PathRouteMap<T>, method: string, targetPath: string)
         : MatchResult<T> {
         if (!routes) return null;
         let routeMap = routes.get(targetPath);
         if (!routeMap) return null;
-        let result = routeMap.get(method);
-        if (result) return { handler: result, data: null, params: null };
+        let result = routeMap.definition[method];
+        if (result) return { route: result, descriptor: routeMap, data: null, params: null };
         return null;
     }
 
-    /**
-     * RegExp routes are stored as METHOD ---> RegExp ---> Handler
-     */
-    private _matchRegExpRoutes(routes: Map<string, Array<RegExpRoute<T>>>, method: string, targetPath: string)
-        : MatchResult<T> {
+    private _matchRegExpRoutes(routes: RegExpRouteMap<T>, method: string, targetPath: string)
+        : RegExpMatchResult<T> {
         if (!routes) return null;
-        let regExpList = routes.get(method);
-        let result = this._matchRegExpRoute(regExpList, targetPath);
-        if (result) return result;
-        return null;
-    }
-
-    private _matchRegExpRoute(routeList: Array<RegExpRoute<T>>, targetPath: string)
-        : MatchResult<T> {
-        if (!routeList) return null;
-        let result = null as MatchResult<T>;
-        routeList.find(x => {
+        let result = null as RegExpMatchResult<T>;
+        routes.find(x => {
             let match = targetPath.match(x.test);
             if (match) {
-                let params = x.paramKeys ? createRouteParams(match, x.paramKeys) : null;
-                result = { handler: x.middleware, data: match, params };
-                return true;
+                let methodResult = x.definition[method];
+                if (methodResult) {
+                    let paramKeys = methodResult.paramKeys;
+                    let params = paramKeys ? createRouteParams(match, paramKeys) : null;
+                    result = { route: methodResult, descriptor: x, data: match, params };
+                    return true;
+                }
             }
             return false;
         });
@@ -259,12 +305,12 @@ export class Router<T extends Context> {
             debug("test: method: %s, path: %s", method, path);
             let match = this.match(path, method);
             if (match) {
-                let handler = match.handler;
+                let handler = match.route.handler;
                 if (handler) {
                     debug("match");
                     ctx.markRouteHandled();
                     let routeData = ctx.getRouteData();
-                    routeData.add(match.data, match.params);
+                    routeData.add(match.route, match.descriptor, match.data, match.params);
                     return handler(ctx, next);
                 }
             }
@@ -278,7 +324,6 @@ export class Router<T extends Context> {
 }
 
 export class HttpMethod {
-
     static Get = "GET";
     static Head = "HEAD";
     static Post = "POST";
@@ -288,9 +333,8 @@ export class HttpMethod {
     static Options = "OPTIONS";
     static Trace = "TRACE";
 
-    static CommonMethods = [
+    static ActionMethods = [
         HttpMethod.Get,
-        HttpMethod.Head,
         HttpMethod.Post,
         HttpMethod.Put,
         HttpMethod.Delete,
