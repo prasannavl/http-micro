@@ -61,7 +61,7 @@ class Server {
         });
 
         
-        router.get(/reg(ex)per/i, (ctx, next) => {
+        router.get(/reg(ex)per$/i, (ctx, next) => {
             ctx.sendAsJson(ctx.getRouteData());
             return Promise.resolve();
         });
@@ -73,10 +73,8 @@ class Server {
 
         router.get("/test", (ctx, next) => {
             let res = ctx.res;
-            res.setHeader('Foo', 'bar');
-            console.log((res as any).getHeaders());
+            ctx.send("Test!");
             res.end();
-
             return Promise.resolve();
         });
 
