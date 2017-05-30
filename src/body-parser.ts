@@ -3,19 +3,37 @@ import * as rawBody from "raw-body";
 import * as qs from "querystring";
 import * as typeis from "type-is";
 import * as httpError from "http-errors";
-import { isHttpError, wrapError } from "./utils";
+import * as contentType from "content-type";
+import * as mimeTypes from "mime-types";
+import { isHttpError, wrapError } from "./error-utils";
 
 export type ParserCallback = (error: rawBody.RawBodyError, body?: string) => void;
 export type Parser = (req: http.IncomingMessage, callback: ParserCallback) => void;
 const defaultLimit = 1024 * 1024 / 2; // 512Kb
 
 export function rawBodyParserFactory(opts: rawBody.Options) {
-    return function rawParser(req: http.IncomingMessage, callback: ParserCallback) {
+    return function rawParser(req: http.IncomingMessage, callback: ParserCallback, state?: any) {
+        if (handleRequestBodyAbsence(req, callback)) return;
 
         var limit = opts.limit || defaultLimit;
-        var contentLength = req.headers ?
-            Number(req.headers["content-length"]) : null;
-        let encoding = opts.encoding !== undefined ? opts.encoding : true;
+        var contentLength = opts.length || Number(req.headers["content-length"]);
+        let encoding = opts.encoding;
+        if (encoding === undefined) {
+            let contentTypeHeader = req.headers["content-type"];
+            // Ensure that further attempts are skipped, as contentType
+            // will throw on invalid header. Since rawParser could 
+            // potentially be passed on it's own to get a buffer back.
+            if (contentTypeHeader) {
+                let ct = contentType.parse(contentTypeHeader);
+                encoding = ct.parameters["charset"] as any;
+                if (!encoding) {
+                    // No valid encoding was found, but content-type
+                    // header is valid. So, pick up the default 
+                    // encoding for the mime.
+                    encoding = mimeTypes.charset(ct.type) as string;
+                }
+            }
+        }
 
         rawBody(req, {
             limit: limit,
@@ -31,7 +49,7 @@ export function jsonBodyParserFactory(opts: JsonBodyParserOpts, defaultParser?: 
     let rawParser = defaultParser || rawBodyParserFactory(opts);
     let reviver = opts.reviver;
 
-    return function jsonParser(req: http.IncomingMessage, callback: ParserCallback) {
+    return function jsonParser(req: http.IncomingMessage, callback: ParserCallback, state?: any) {
         rawParser(req, function (err, body) {
             if (err) {
                 return callback(err);
@@ -61,7 +79,7 @@ export function formBodyParserFactory(opts: FormBodyParserOpts, defaultParser?: 
     let eq = opts.eq;
     let options = opts.options;
 
-    return function jsonParser(req: http.IncomingMessage, callback: ParserCallback) {
+    return function jsonParser(req: http.IncomingMessage, callback: ParserCallback, state?: any) {
         rawParser(req, function (err, body) {
             if (err) {
                 return callback(err);
@@ -84,8 +102,10 @@ export function anyBodyParserFactory(opts: AnyParserOptions, defaultParser?: Par
     let jsonParser = jsonBodyParserFactory(opts, rawParser);
     let formParser = formBodyParserFactory(opts, rawParser);
     let types = ["json", "urlencoded"];
+    
+    return function anyBodyParser(req: http.IncomingMessage, callback: ParserCallback, state?: any) {
+        if (handleRequestBodyAbsence(req, callback)) return;
 
-    return function anyBodyParser(req: http.IncomingMessage, callback: ParserCallback) {
         let t = typeis(req, types);
         switch (t) {
             case types[0]: {
@@ -127,4 +147,12 @@ export function createAsyncParser(parser: Parser) {
 export function parseBody<T>(req: http.IncomingMessage, parser: Parser = anyBodyParserFactory({})) {
     let finalParser = createAsyncParser(parser);
     return finalParser(req) as Promise<T>;
+}
+
+function handleRequestBodyAbsence(req: http.IncomingMessage, callback: ParserCallback) {
+    if (!typeis.hasBody(req)) {
+        callback(null, null);
+        return true;
+    }
+    return false;
 }

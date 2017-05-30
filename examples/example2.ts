@@ -62,6 +62,12 @@ export class Server {
             return Promise.resolve();
         });
 
+        router.post("/echo-object", async (ctx, next) => {
+            let body = await ctx.getRequestBody();
+            ctx.send(body);
+            return Promise.resolve();
+        });
+
         // This will not work since it's taken over by the api mount.        
         router.get("/api/numbers", (ctx, next) => {
             let str = "";

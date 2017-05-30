@@ -6,8 +6,6 @@ import { stringify } from "./utils";
 import { isString } from "./lang";
 import { RouteData } from "./route-data";
 import * as bodyParser from "./body-parser";
-import * as typeis from "type-is";
-import * as accepts from "accepts";
 
 export class Context extends NodeContext {
     private _url: url.Url = null;
@@ -15,7 +13,6 @@ export class Context extends NodeContext {
     private _routePath: string = null;
     private _routeData: RouteData = null;
     private _requestBody: any = null;
-    private _accepts: accepts.Accepts = null;
 
     routeHandled = false;
 
@@ -38,17 +35,6 @@ export class Context extends NodeContext {
         const ContentTypeKey = "Content-Type";
         if (!this.res.headersSent)
             this.setHeader(ContentTypeKey, contentType, force);
-    }
-
-    getTypeInfo() {
-        if (this._accepts == null) {
-            this._accepts = accepts(this.req);
-        }
-
-        return {
-            accepts: this._accepts,
-            typeis: typeis as any,
-        };
     }
 
     setStatus(code: number, message?: string) {

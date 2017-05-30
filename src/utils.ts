@@ -5,6 +5,8 @@ import { Router } from "./router";
 import * as debugModule from "debug";
 import * as net from "net";
 import * as http from "http";
+import * as os from "os";
+import { errorToResponse, recurseErrorInfo } from "./error-utils";
 
 const debug = debugModule("http-micro:utils");
 
@@ -18,61 +20,10 @@ const debug = debugModule("http-micro:utils");
  */
 export function defaultErrorHandler(err: Error, req: http.IncomingMessage, res: http.ServerResponse) {
     errorToResponse(err, res);
-    const msg = err.stack || err.toString();
-    console.error();
-    console.error(`http-micro error: ${msg}`);
-    console.error();
-}
-
-export function errorToResponse(err: Error, res: http.ServerResponse) {
-    let status = getHttpErrorStatusCode(err);
-    if (!res.headersSent) {
-        res.statusCode = status;
+    for (let msg of recurseErrorInfo(err)) {
+        console.error(msg + os.EOL);
     }
-    if (!res.finished)
-        res.end();
 }
-
-/**
- * Check if the status is a 4xx or 5xx status code.
- */
-export function isHttpErrorStatusCode(code: number) {
-    return Number.isInteger(code) && code > 399 && code < 600;
-}
-
-/**
- * Check if the 'statusCode' property of error object
- * is a valid 4xx or 5xx status code. Return the code
- * if it is, or else return 500.
- */
-export function getHttpErrorStatusCode(err: Error) {
-    let errObj = err as any;
-    let status = errObj["statusCode"];
-    if (!isHttpErrorStatusCode(status)) {
-        return 500;
-    }
-    return status;
-}
-
-/**
- * Check if an error object is a valid http error, by
- * testing if 'statusCode' property of the error object
- * is a valid 4xx or 5xx status code.
- */
-export function isHttpError(err: Error) {
-    let errObj = err as any;
-    let status = errObj["statusCode"];
-    return isHttpErrorStatusCode(status);
-}
-
-/**
- * Wrap an error into another error using the defacto
- * 'cause' property.
- */
-export function wrapError(targetError: Error, originalError: Error) {
-    (targetError as any)["cause"] = originalError;
-}
-
 
 /**
  * A default fall-back handler that simply ends the request, and returns.
