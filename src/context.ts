@@ -75,12 +75,20 @@ export class Context extends NodeContext {
         this.send(body, headers, 400);
     }
 
-    sendMethodNotAllowed(allowedMethods: string[], reason: string = null, headers?: any) {
-        if (!allowedMethods)
-            throw new Error("allowed methods parameter is required");
+    sendMethodNotAllowed(allowedMethods: string[] | string, reason: string = null, headers?: any) {
+        let allowHeaderString;
+        if (Array.isArray(allowedMethods)) {
+            if (allowedMethods.length < 1)
+                throw new Error("allowed methods invalid");
+            allowHeaderString = allowedMethods.join(", ");
+        } else {
+            if (!allowedMethods)
+                throw new Error("allowed methods parameter required");
+            allowHeaderString = allowedMethods;
+        }
         let mergedHeaders;
         let allowHeaders = {
-            "Allow": allowedMethods.join(", "),
+            "Allow": allowHeaderString,
         }
         if (headers) {
             mergedHeaders = Object.assign({}, headers, allowHeaders);
