@@ -149,7 +149,7 @@ export function parseBody<T>(req: http.IncomingMessage, parser: Parser = anyBody
     return finalParser(req) as Promise<T>;
 }
 
-function handleRequestBodyAbsence(req: http.IncomingMessage, callback: ParserCallback) {
+export function handleRequestBodyAbsence(req: http.IncomingMessage, callback: ParserCallback) {
     if (!typeis.hasBody(req)) {
         callback(null, null);
         return true;
