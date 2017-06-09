@@ -1,4 +1,4 @@
-import { IContext, MiddlewareWithContext, Middleware, MiddlewareResult } from "./core";
+import { IContext, NextMiddleware, Middleware, MiddlewareResult } from "./core";
 import { Context } from "./context";
 import * as url from "url";
 import { Router } from "./router";
@@ -33,7 +33,7 @@ export function defaultErrorHandler(err: Error, req: http.IncomingMessage, res: 
  * @param {MiddlewareWithContext} next 
  * @returns {Promise} Resolved Promise
  */
-export function defaultFallbackOkHandler(context: IContext, next: MiddlewareWithContext) {
+export function defaultFallbackOkHandler(context: IContext, next: NextMiddleware) {
     context.res.end();
     return Promise.resolve();
 }
@@ -46,7 +46,7 @@ export function defaultFallbackOkHandler(context: IContext, next: MiddlewareWith
  * @param {MiddlewareWithContext} next 
  * @returns {Promise} Resolved Promise
  */
-export function defaultFallbackNotFoundHandler(context: IContext, next: MiddlewareWithContext) {
+export function defaultFallbackNotFoundHandler(context: IContext, next: NextMiddleware) {
     context.res.statusCode = 404;
     context.res.end();
     return Promise.resolve();
@@ -71,7 +71,7 @@ export function compose<T extends IContext>(...middlewares: Middleware<T>[]) : M
     
     function dispatch(index: number,
         context: T,
-        next: MiddlewareWithContext): MiddlewareResult {
+        next: NextMiddleware): MiddlewareResult {
         
         let c = middlewares[index];
         // If c doesn't exist then it's the end of the 

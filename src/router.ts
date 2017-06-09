@@ -1,4 +1,4 @@
-import { IContext, Middleware, MiddlewareWithContext } from "./core";
+import { IContext, Middleware, NextMiddleware } from "./core";
 import { Context } from "./context";
 import { compose } from "./utils";
 import * as debugModule from "debug";
@@ -298,7 +298,7 @@ export class Router<T extends Context> {
         let debug = debugModule("http-micro:router:" + (debugName || "$"));
         let middlewares = this._middlewares || [];
 
-        let routeHandler = (ctx: T, next: MiddlewareWithContext): Promise<void> => {
+        let routeHandler = (ctx: T, next: NextMiddleware): Promise<void> => {
             if (ctx.routeHandled) return Promise.resolve();
             let method = ctx.getHttpMethod();
             let path = ctx.getRoutePath();

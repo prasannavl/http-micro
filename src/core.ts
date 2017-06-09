@@ -27,9 +27,9 @@ export interface IContext extends ItemsContainer {
     app: IApplication;
 }
 
-export type Middleware<T extends IContext> = (context: T, next: MiddlewareWithContext) => MiddlewareResult;
+export type Middleware<T extends IContext> = (context: T, next: NextMiddleware) => MiddlewareResult;
 export type MiddlewareResult = Promise<void>;
-export type MiddlewareWithContext = () => MiddlewareResult;
+export type NextMiddleware = () => MiddlewareResult;
 export type ErrorHandler<T extends IContext> = (err: Error, req: http.IncomingMessage, res: http.ServerResponse, context?: T) => void;
 
 export class ApplicationCore<T extends IContext> implements IApplication {
