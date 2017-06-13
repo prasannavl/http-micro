@@ -13,15 +13,18 @@ app.use((ctx) => {
 
 ### Highlights
 
-- Written in and works with Typescipt
+- Written in and works with Typescipt.
 - No monkey-patching Node's http module or any other module.
 - Koa-like contexts that can be generically typed in TS.
 - Promises for all middleware.
 - Provides middleware chaining and composition over core `http` module.
-- Extremely small code-base.
-- Sane error handling with promises, unlike Koa.
-- High performance (Combined with bluebird promises, 
+- Awaitable `next` middlewares. So, parent middleware has complete
+  control over the execution of the next middleware.
+- Just use `async/await` and wrap in `try-catch` for error handling. No 
+  special quirks or ugly special-case callbacks like Express.
+- High performance (Combined with bluebird promises,
   performance is on par with node's raw http module).
+- Small code-base.
 
 ### Example
 
