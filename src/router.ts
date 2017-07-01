@@ -6,44 +6,31 @@ import * as pathToRegexp from "path-to-regexp";
 import * as createError from "http-errors";
 
 export type PathRouteMap<T extends Context> = Map<string, RouteDescriptor<T>>;
-export type RegExpRouteMap<T extends Context> = Array<RegExpRouteDescriptor<T>>;
+export type RegExpRouteMap<T extends Context> = Array<RouteDescriptor<T>>;
+
+export class RouteDescriptor<T extends Context> {
+    path: string;
+    test: RegExp;    
+    definitions: IRouteDefinitionMap<T>;
+
+    constructor(path: string, test: RegExp = null, definitions: IRouteDefinitionMap<T> = {}) {
+        this.path = path;
+        this.test = test;
+        this.definitions = definitions;
+    }
+}
+
+export interface IRouteDefinitionMap<T extends Context> {
+    [method: string]: RouteDefinition<T>;
+}
 
 export class RouteDefinition<T extends Context> {
-    constructor(public handler: Middleware<T>) {}
-}
+    handler: Middleware<T>;
+    paramKeys: any;
 
-export class RegExpRouteDefinition<T extends Context> extends RouteDefinition<T> {
-    constructor(handler: Middleware<T>, public paramKeys: any) {
-        super(handler);
-    }
-}
-
-export class RouteDefinitionMap<T extends Context> {
-    [key: string]: RouteDefinition<T>;
-}
-
-export class RegExpRouteDefinitionMap<T extends Context> extends RouteDefinitionMap<T> {
-    [key: string]: RegExpRouteDefinition<T>;
-}
-
-export interface IRouteDescriptor<T extends Context> {
-    path: string;
-    definition: RouteDefinitionMap<T> | RegExpRouteDefinitionMap<T>;
-}
-
-export class RouteDescriptor<T extends Context> implements IRouteDescriptor<T> {
-    definition: RouteDefinitionMap<T>;
-
-    constructor(public path: string) {
-        this.definition = new RouteDefinitionMap<T>();
-    }
-}
-
-export class RegExpRouteDescriptor<T extends Context> implements IRouteDescriptor<T> {
-    definition: RegExpRouteDefinitionMap<T>;
-
-    constructor(public path: string, public test: RegExp) {
-        this.definition = new RegExpRouteDefinitionMap<T>();        
+    constructor(handler: Middleware<T>, paramKeys: any = null) {
+        this.handler = handler;
+        this.paramKeys = paramKeys;
     }
 }
 
@@ -53,13 +40,7 @@ export interface MatchResult<T extends Context> {
     data: RegExpMatchArray, params: any
 }
 
-export interface RegExpMatchResult<T extends Context> extends MatchResult<T> {
-    route: RegExpRouteDefinition<T>,
-    descriptor: RegExpRouteDescriptor<T>
-}
-
 export type Route = string | RegExp;
-
 
 export class Router<T extends Context> {
 
@@ -74,7 +55,7 @@ export class Router<T extends Context> {
     }
 
     private _getRegExpRoutes() {
-        return this._regExpRoutes || (this._regExpRoutes = new Array<RegExpRouteDescriptor<T>>());
+        return this._regExpRoutes || (this._regExpRoutes = new Array<RouteDescriptor<T>>());
     }
 
     /**
@@ -195,11 +176,11 @@ export class Router<T extends Context> {
             existing = new RouteDescriptor<T>(route);
             pathRoutes.set(targetRoute, existing);
         }
-        existing.definition[method] = new RouteDefinition(handler);
+        existing.definitions[method] = new RouteDefinition(handler);
         // Assign a HEAD route automatically, if the current definition is for GET,
         // and a previous HEAD route doesn't exist for the current path.
-        if (method === HttpMethod.Get && !existing.definition[HttpMethod.Head]) {
-            existing.definition[HttpMethod.Head] = new RouteDefinition(handler);
+        if (method === HttpMethod.Get && !existing.definitions[HttpMethod.Head]) {
+            existing.definitions[HttpMethod.Head] = new RouteDefinition(handler);
         }
     }
 
@@ -214,13 +195,13 @@ export class Router<T extends Context> {
         let routes = this._getRegExpRoutes();
         let existing = routes.find(x => x.test.source === route.source);
         if (!existing) {
-            existing = new RegExpRouteDescriptor<T>(path || route.source, route);
+            existing = new RouteDescriptor<T>(path || route.source, route);
         }
-        existing.definition[method] = new RegExpRouteDefinition<T>(handler, paramKeys);
+        existing.definitions[method] = new RouteDefinition<T>(handler, paramKeys);
         // Assign a HEAD route automatically, if the current definition is for GET,
         // and a previous HEAD route doesn't exist for the current path.
-        if (method === HttpMethod.Get && !existing.definition[HttpMethod.Head]) {
-            existing.definition[HttpMethod.Head] = new RegExpRouteDefinition(handler, paramKeys);
+        if (method === HttpMethod.Get && !existing.definitions[HttpMethod.Head]) {
+            existing.definitions[HttpMethod.Head] = new RouteDefinition(handler, paramKeys);
         }
     }
 
@@ -252,19 +233,19 @@ export class Router<T extends Context> {
         if (!routes) return null;
         let routeMap = routes.get(targetPath);
         if (!routeMap) return null;
-        let result = routeMap.definition[method];
+        let result = routeMap.definitions[method];
         if (result) return { route: result, descriptor: routeMap, data: null, params: null };
         return null;
     }
 
     private _matchRegExpRoutes(routes: RegExpRouteMap<T>, method: string, targetPath: string)
-        : RegExpMatchResult<T> {
+        : MatchResult<T> {
         if (!routes) return null;
-        let result = null as RegExpMatchResult<T>;
+        let result = null as MatchResult<T>;
         routes.find(x => {
             let match = targetPath.match(x.test);
             if (match) {
-                let methodResult = x.definition[method];
+                let methodResult = x.definitions[method];
                 if (methodResult) {
                     let paramKeys = methodResult.paramKeys;
                     let params = paramKeys ? createRouteParams(match, paramKeys) : null;
