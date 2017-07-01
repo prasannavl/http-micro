@@ -14,7 +14,7 @@ export class NodeContext implements IContext {
         return this.items || (this.items = new Map<string, any>());
     }
 
-    get(key: string): any {
+    getItem(key: string): any {
         if (this.items) {
             let res = this.items.get(key);
             if (res !== undefined) return res;
@@ -26,14 +26,14 @@ export class NodeContext implements IContext {
         return null;
     }
 
-    set(key: string, value: any): void {
+    setItem(key: string, value: any): void {
         if (!this.items) {
             this.items = new Map<string, any>();
         }
         this.items.set(key, value);
     }
 
-    has(key: string): boolean {
+    hasItem(key: string): boolean {
         if (this.items) {
             let res = this.items.has(key);
             if (res) return res;

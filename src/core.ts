@@ -7,9 +7,9 @@ const debug = debugModule("http-micro:core");
 
 export interface ItemsContainer {
     items: Map<string, any>;
-    get(key: string): any;
-    set(key: string, value: any): void;
-    has(key: string): boolean;
+    getItem(key: string): any;
+    setItem(key: string, value: any): void;
+    hasItem(key: string): boolean;
 }
 
 export interface IApplication extends ItemsContainer {
@@ -88,21 +88,21 @@ export class ApplicationCore<T extends IContext> implements IApplication {
         this._socketClientErrorHandler = handler;
     }
 
-    get(key: string): any {
+    getItem(key: string): any {
         if (this.items) {
             return this.items.get(key);
         }
         return null;
     }
 
-    set(key: string, value: any): void {
+    setItem(key: string, value: any): void {
         if (!this.items) {
             this.items = new Map<string, any>();
         }
         this.items.set(key, value);
     }
 
-    has(key: string): boolean {
+    hasItem(key: string): boolean {
         if (this.items) {
             return this.items.has(key);
         }
