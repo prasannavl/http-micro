@@ -12,7 +12,7 @@ export class Context extends NodeContext {
     private _ipAddresses: string[] = null;
     private _routePath: string = null;
     private _routeData: RouteData = null;
-    private _requestBody: any = null;
+    private _bodyParseTask: any = null;
 
     routeHandled = false;
 
@@ -298,14 +298,12 @@ export class Context extends NodeContext {
     }
 
     getRequestBody<T>(parser?: bodyParser.Parser): Promise<T> {
-        if (this._requestBody === null) {
-            return bodyParser.parseBody<T>(this.req, parser)
-                .then(body => {
-                    this._requestBody = body;
-                    return body;
-                });
+        if (this._bodyParseTask === null) {
+            let task = bodyParser.parseBody<T>(this.req, parser);
+            this._bodyParseTask = task;
+            return task;
         }
-        return Promise.resolve(this._requestBody);
+        return this._bodyParseTask;
     }
 }
 
