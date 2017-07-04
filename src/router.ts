@@ -44,13 +44,27 @@ export interface MatchResult<T extends Context> {
 
 export type Route = string | RegExp;
 
+export type RouterOpts = {
+    strict?: boolean,
+    sensitive?: boolean
+};
+
 export class Router<T extends Context> {
 
-    static PathMatchOpts: pathToRegexp.RegExpOptions = { strict: true, sensitive: true };
+    static Defaults: RouterOpts = { strict: true, sensitive: true };
 
     private _pathRoutes: PathRouteMap<T>;
     private _regExpRoutes: RegExpRouteMap<T>;
     private _middlewares: Middleware<T>[];
+    private _opts: RouterOpts;
+
+    constructor(opts: RouterOpts = null) {
+        if (opts) this._opts = Object.assign({}, Router.Defaults, opts);
+    }
+
+    get opts() {
+        return this._opts || Router.Defaults;
+    }
 
     private _getPathRoutes() {
         return this._pathRoutes || (this._pathRoutes = new Map<string, RouteDescriptor<T>>());
@@ -191,7 +205,7 @@ export class Router<T extends Context> {
 
     private _definePathMatchRoute(route: string, method: string, handler: Middleware<T>) {
         let keys: pathToRegexp.Key[] = [];
-        let re = pathToRegexp(route, keys, Router.PathMatchOpts);
+        let re = pathToRegexp(route, keys, this.opts);
         this._defineRegExpRoute(re, method, handler, route, keys);
     }
 
