@@ -61,14 +61,27 @@ export class Router<T extends Context> {
     }
 
     /**
-     * Add a route for any http method. If a specific method,
-     * for the same path is also provided, that always takes
-     * precedence.
+     * Add a route for all http action methods. Basically,
+     * add the route for each method in HttpMethod.ActionMethods
      *
      * @param route 
      * @param handler
      */
     all(route: Route, handler: Middleware<T>) {
+        HttpMethod.ActionMethods.forEach(x => {
+            this.define(route, x, handler);
+        });
+        return this;
+    }
+
+    /**
+     * Add a route for any action regardless of the method.
+     * If a specific method for the same path is also provided,
+     * that always takes precedence.
+     * @param route 
+     * @param handler
+     */
+    any(route: Route, handler: Middleware<T>) {
         return this.define(route, HttpMethod.Wildcard, handler);
     }
 
