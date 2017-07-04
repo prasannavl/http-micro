@@ -35,9 +35,11 @@ export class RouteDefinition<T extends Context> {
 }
 
 export interface MatchResult<T extends Context> {
+    router: Router<T>,
     route: RouteDefinition<T>,
     descriptor: RouteDescriptor<T>,
-    data: RegExpMatchArray, params: any
+    data: RegExpMatchArray,
+    params: any
 }
 
 export type Route = string | RegExp;
@@ -152,11 +154,6 @@ export class Router<T extends Context> {
      */
     define(route: Route, method: string, handler: Middleware<T>) {
         let m = method.toString();
-        if (m === HttpMethod.Wildcard) {
-            HttpMethod.ActionMethods
-                .forEach(x => this.define(route, x, handler));
-            return this;
-        }
         if (typeof route === "string") {
             if (route.indexOf(":") === -1)
                 this._defineStringRoute(route, m, handler);
@@ -177,11 +174,6 @@ export class Router<T extends Context> {
             pathRoutes.set(targetRoute, existing);
         }
         existing.definitions[method] = new RouteDefinition(handler);
-        // Assign a HEAD route automatically, if the current definition is for GET,
-        // and a previous HEAD route doesn't exist for the current path.
-        if (method === HttpMethod.Get && !existing.definitions[HttpMethod.Head]) {
-            existing.definitions[HttpMethod.Head] = new RouteDefinition(handler);
-        }
     }
 
     private _definePathMatchRoute(route: string, method: string, handler: Middleware<T>) {
@@ -198,11 +190,6 @@ export class Router<T extends Context> {
             existing = new RouteDescriptor<T>(path || route.source, route);
         }
         existing.definitions[method] = new RouteDefinition<T>(handler, paramKeys);
-        // Assign a HEAD route automatically, if the current definition is for GET,
-        // and a previous HEAD route doesn't exist for the current path.
-        if (method === HttpMethod.Get && !existing.definitions[HttpMethod.Head]) {
-            existing.definitions[HttpMethod.Head] = new RouteDefinition(handler, paramKeys);
-        }
     }
 
     /**
@@ -234,7 +221,19 @@ export class Router<T extends Context> {
         let routeMap = routes.get(targetPath);
         if (!routeMap) return null;
         let result = routeMap.definitions[method];
-        if (result) return { route: result, descriptor: routeMap, data: null, params: null };
+        if (!result && method === HttpMethod.Head) {
+            result = routeMap.definitions[HttpMethod.Get];
+        }
+        if (!result) {
+            result = routeMap.definitions[HttpMethod.Wildcard];
+        }
+        if (result) return {
+            router: this,
+            route: result,
+            descriptor: routeMap,
+            data: null,
+            params: null
+        };
         return null;
     }
 
@@ -246,10 +245,25 @@ export class Router<T extends Context> {
             let match = targetPath.match(x.test);
             if (match) {
                 let methodResult = x.definitions[method];
-                if (methodResult) {
+
+                if (!methodResult && method === HttpMethod.Head) {
+                    methodResult = x.definitions[HttpMethod.Get];
+                }
+                
+                if (!methodResult) {
+                    methodResult = x.definitions[HttpMethod.Wildcard];
+                }
+
+                if (!methodResult) {
                     let paramKeys = methodResult.paramKeys;
                     let params = paramKeys ? createRouteParams(match, paramKeys) : null;
-                    result = { route: methodResult, descriptor: x, data: match, params };
+                    result = {
+                        router: this,
+                        route: methodResult,
+                        descriptor: x,
+                        data: match,
+                        params
+                    };
                     return true;
                 }
             }
