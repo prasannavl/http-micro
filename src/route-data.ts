@@ -28,7 +28,7 @@ export class RouteData {
 
     pop() {
         let m = [].pop.call(this._matches) as MatchResult<any>;
-        this._currentMatch = this._getLastMatch();        
+        this._currentMatch = this._getLastMatch();
         this._setPendingRoutePath(m.path + this.getPendingRoutePath());
         return m;
     }

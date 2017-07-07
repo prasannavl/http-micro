@@ -14,6 +14,11 @@ function run() {
         { path: "/test" },
         { path: "/hello" },
         { path: "/api" },
+        {
+            path: "/chain/echo", method: "POST",
+            headers: { "content-type": "application/json" },    
+            body: `{ "message": "hello" }`
+        },
         { path: "/chain/c1/hello" },
         { path: "/chain/c2/hello" }
     ];
@@ -21,7 +26,7 @@ function run() {
     new Server().run(opts.port, opts.host, () => {
         console.log("server running on %s:%s", opts.host, opts.port);
         requests.forEach(x => {
-            http.request(Object.assign({}, x, opts), (res) => {
+            let req = http.request(Object.assign({}, x, opts), (res) => {
                 console.log("-----");
                 console.log(`${res.statusCode} ${res.statusMessage}`);
                 console.log(`${util.inspect(res.headers, false, null)}\r\n`);
@@ -31,7 +36,12 @@ function run() {
                 res.on("end", () => {
                     console.log("\r\n-----");
                 });
-            }).end();
+            });
+            let body = (x as any).body;
+            if (body) {
+                req.write(body);
+            }
+            req.end();
         });
     });
 }
@@ -143,6 +153,14 @@ export class Server {
             return Promise.resolve();
         });
 
+        let meldedRouter = new Router<AppContext>();
+        meldedRouter.post("/echo", async (ctx, next) => {
+            let body = await ctx.getRequestBody();
+            ctx.send(body);
+            return Promise.resolve();
+        });
+
+        router.use(meldedRouter);
         router.use("/c1", router2);
         router.use("/c2", router3);
 

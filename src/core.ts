@@ -16,8 +16,7 @@ export interface IApplication extends ItemsContainer {
     middlewares: Middleware<any>[];
     listen(...args: any[]): any;
     getRequestListener(): (req: http.IncomingMessage, res: http.ServerResponse) => void;
-    use(...middlewares: Middleware<any>[]): IApplication;
-    use(router: Router<any>): IApplication;
+    use(...middlewares: (Middleware<any> | Router<any>)[]): IApplication;
     setErrorHandler(handler: ErrorHandler<any>): void;
     setFallbackHandler(handler: Middleware<any>): void;
 }
@@ -65,20 +64,9 @@ export class Application<T extends Context> implements IApplication {
         };
     }
 
-    use(router: Router<T>): Application<T>;
-    use(...middleware: Middleware<T>[]): Application<T>;
-    use(...args: any[]) {
-        if (args.length === 1) {
-            let router = args[0];
-            if (router instanceof Router) {
-                let handler = router.build();
-                if (!this.middlewares) this.middlewares = [];
-                this.middlewares.push(handler);
-                return this;
-            }
-        }
+    use(...middleware: (Middleware<T> | Router<T>)[]): Application<T> {
         if (!this.middlewares) this.middlewares = [];
-        this.middlewares = this.middlewares.concat(args);
+        utils.addMiddlewares(middleware, this.middlewares);
         return this;
     }
 

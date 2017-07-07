@@ -103,3 +103,15 @@ export function stringify(value: any,
     ? JSON.stringify(value, replacer, spaces)
     : JSON.stringify(value);
 }
+
+export function addMiddlewares(middlewares: (Middleware<any> | Router<any>)[], destination: Middleware<any>[]) {
+    if (!middlewares) return;
+    let len = middlewares.length;
+    let dlength = destination.length;
+    destination.length = dlength + len;
+    for (var i = 0; i < len; i++) {
+        var current = middlewares[i];
+        let handler = current instanceof Router ? current.build() : current;
+        destination[i + dlength] = handler;
+    }
+}
