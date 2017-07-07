@@ -1,6 +1,7 @@
-import { IContext, Middleware, NextMiddleware } from "./core";
+import { Middleware, NextMiddleware } from "./core";
 import { Context } from "./context";
-import { compose } from "./utils";
+import { dispatch } from "./utils";
+import { RouteData } from "./route-data";
 import * as debugModule from "debug";
 import * as pathToRegexp from "path-to-regexp";
 import * as createError from "http-errors";
@@ -9,12 +10,10 @@ export type PathRouteMap<T extends Context> = Map<string, RouteDescriptor<T>>;
 export type RegExpRouteMap<T extends Context> = Array<RouteDescriptor<T>>;
 
 export class RouteDescriptor<T extends Context> {
-    path: string;
     test: RegExp;    
     definitions: IRouteDefinitionMap<T>;
 
-    constructor(path: string, test: RegExp = null, definitions: IRouteDefinitionMap<T> = {}) {
-        this.path = path;
+    constructor(test: RegExp = null, definitions: IRouteDefinitionMap<T> = {}) {
         this.test = test;
         this.definitions = definitions;
     }
@@ -35,26 +34,28 @@ export class RouteDefinition<T extends Context> {
 }
 
 export interface MatchResult<T extends Context> {
-    router: Router<T>,
-    route: RouteDefinition<T>,
-    descriptor: RouteDescriptor<T>,
-    data: RegExpMatchArray,
-    params: any
+    router: Router<T>;
+    route: RouteDefinition<T>;
+    descriptor: RouteDescriptor<T>;
+    data: RegExpMatchArray;
+    params: any;
+    path: string;
 }
 
 export type Route = string | RegExp;
 
 export type RouterOpts = {
     strict?: boolean,
-    sensitive?: boolean
+    sensitive?: boolean,
+    end?: boolean,
+    delimiter?: string;
 };
 
 export class Router<T extends Context> {
 
-    static Defaults: RouterOpts = { strict: true, sensitive: true };
+    static Defaults: RouterOpts = { strict: true, end: false, sensitive: true };
 
-    private _pathRoutes: PathRouteMap<T>;
-    private _regExpRoutes: RegExpRouteMap<T>;
+    private _routes: RegExpRouteMap<T>;
     private _middlewares: Middleware<T>[];
     private _opts: RouterOpts;
 
@@ -66,12 +67,8 @@ export class Router<T extends Context> {
         return this._opts || Router.Defaults;
     }
 
-    private _getPathRoutes() {
-        return this._pathRoutes || (this._pathRoutes = new Map<string, RouteDescriptor<T>>());
-    }
-
-    private _getRegExpRoutes() {
-        return this._regExpRoutes || (this._regExpRoutes = new Array<RouteDescriptor<T>>());
+    private _getRoutes() {
+        return this._routes || (this._routes = new Array<RouteDescriptor<T>>());
     }
 
     /**
@@ -81,7 +78,7 @@ export class Router<T extends Context> {
      * @param route 
      * @param handler
      */
-    all(route: Route, handler: Middleware<T>) {
+    all(route: Route, handler: Middleware<T>, opts?: RouterOpts) {
         HttpMethod.ActionMethods.forEach(x => {
             this.define(route, x, handler);
         });
@@ -95,8 +92,8 @@ export class Router<T extends Context> {
      * @param route 
      * @param handler
      */
-    any(route: Route, handler: Middleware<T>) {
-        return this.define(route, HttpMethod.Wildcard, handler);
+    any(route: Route, handler: Middleware<T>, opts?: RouterOpts) {
+        return this.define(route, HttpMethod.Wildcard, handler, opts);
     }
 
     /**
@@ -104,8 +101,8 @@ export class Router<T extends Context> {
      * @param route 
      * @param handler
      */
-    get(route: Route, handler: Middleware<T>) {
-        return this.define(route, HttpMethod.Get, handler);
+    get(route: Route, handler: Middleware<T>, opts?: RouterOpts) {
+        return this.define(route, HttpMethod.Get, handler, opts);
     }
 
     /**
@@ -113,8 +110,8 @@ export class Router<T extends Context> {
      * @param route 
      * @param handler
      */
-    put(route: Route, handler: Middleware<T>) {
-        return this.define(route, HttpMethod.Put, handler);
+    put(route: Route, handler: Middleware<T>, opts?: RouterOpts) {
+        return this.define(route, HttpMethod.Put, handler, opts);
     }
 
     /**
@@ -122,8 +119,8 @@ export class Router<T extends Context> {
      * @param route 
      * @param handler
      */
-    post(route: Route, handler: Middleware<T>) {
-        return this.define(route, HttpMethod.Post, handler);
+    post(route: Route, handler: Middleware<T>, opts?: RouterOpts) {
+        return this.define(route, HttpMethod.Post, handler, opts);
     }
 
     /**
@@ -131,8 +128,8 @@ export class Router<T extends Context> {
      * @param route 
      * @param handler
      */
-    delete(route: Route, handler: Middleware<T>) {
-        return this.define(route, HttpMethod.Delete, handler);
+    delete(route: Route, handler: Middleware<T>, opts?: RouterOpts) {
+        return this.define(route, HttpMethod.Delete, handler, opts);
     }
 
     /**
@@ -140,8 +137,8 @@ export class Router<T extends Context> {
      * @param route 
      * @param handler
      */
-    patch(route: Route, handler: Middleware<T>) {
-        return this.define(route, HttpMethod.Patch, handler);
+    patch(route: Route, handler: Middleware<T>, opts?: RouterOpts) {
+        return this.define(route, HttpMethod.Patch, handler, opts);
     }
 
     /**
@@ -158,12 +155,21 @@ export class Router<T extends Context> {
      *
      * @param middleware 
      */
-    use(middleware: Middleware<T> | Middleware<T>[]) {
-        if (this._middlewares) {
-            this._middlewares = this._middlewares.concat(middleware);
-        } else {
-            this._middlewares = [].concat(middleware);
+    use(path: Route, router: Router<T>): Router<T>;
+    use(path: Route, middleware: Middleware<T>) : Router<T>;
+    use(...middleware: Middleware<T>[]): Router<T>;
+    use(...args: any[]) {
+        if (args && args.length === 2) {
+            let first = args[0];
+            let second = args[1];
+            if (typeof first === "string" || first instanceof RegExp) {
+                let h = second instanceof Router ? second.build() : second; 
+                this.any(first, h);
+                return this;
+            }
         }
+        if (!this._middlewares) this._middlewares = [];
+        this._middlewares = this._middlewares.concat(args);
         return this;
     }
 
@@ -179,42 +185,28 @@ export class Router<T extends Context> {
      *
      * @param handler
      */
-    define(route: Route, method: string, handler: Middleware<T>) {
+    define(route: Route, method: string, handler: Middleware<T>, opts?: RouterOpts) {
+        if (typeof handler !== "function") throw new TypeError("handler not valid");
         let m = method.toString();
-        if (typeof route === "string") {
-            if (route.indexOf(":") === -1)
-                this._defineStringRoute(route, m, handler);
-            else
-                this._definePathMatchRoute(route, m, handler);
-        } else {
+        typeof route === "string" ?
+            this._definePathMatchRoute(route, m, handler, opts) :
             this._defineRegExpRoute(route, m, handler, null, null);
-        }
         return this;
     }
 
-    private _defineStringRoute(route: string, method: string, handler: Middleware<T>) {
-        let pathRoutes = this._getPathRoutes();
-        let targetRoute = route.startsWith("/") ? route : "/" + route;
-        let existing = pathRoutes.get(targetRoute);
-        if (!existing) {
-            existing = new RouteDescriptor<T>(route);
-            pathRoutes.set(targetRoute, existing);
-        }
-        existing.definitions[method] = new RouteDefinition(handler);
-    }
-
-    private _definePathMatchRoute(route: string, method: string, handler: Middleware<T>) {
+    private _definePathMatchRoute(route: string, method: string, handler: Middleware<T>, opts?: RouterOpts) {
         let keys: pathToRegexp.Key[] = [];
-        let re = pathToRegexp(route, keys, this.opts);
+        let re = pathToRegexp(route, keys, Object.assign({}, this.opts, opts));
         this._defineRegExpRoute(re, method, handler, route, keys);
     }
 
     private _defineRegExpRoute(route: RegExp, method: string, handler: Middleware<T>,
         path: string, paramKeys: pathToRegexp.Key[]) {
-        let routes = this._getRegExpRoutes();
+        let routes = this._getRoutes();
         let existing = routes.find(x => x.test.source === route.source);
         if (!existing) {
-            existing = new RouteDescriptor<T>(path || route.source, route);
+            existing = new RouteDescriptor<T>(route);
+            routes.push(existing);
         }
         existing.definitions[method] = new RouteDefinition<T>(handler, paramKeys);
     }
@@ -224,7 +216,7 @@ export class Router<T extends Context> {
      * the router, and if so return the route.
      *
      * It tries to match a specific route first, and if no routes are
-     * found, tries to see if there's an 'Any' route that's provided,
+     * found, tries to see if there's an 'any' route that's provided,
      * to match all routes.
      *
      * If there are no matches, returns null. 
@@ -237,111 +229,96 @@ export class Router<T extends Context> {
      */
 
     match(path: string, method: string): MatchResult<T> {
-        let targetPath = path.startsWith("/") ? path : "/" + path;
-        return this._matchPathRoutes(this._pathRoutes, method, targetPath) ||
-            this._matchRegExpRoutes(this._regExpRoutes, method, targetPath);
+        return this._match(this._routes, method, path);
     }
 
-    private _matchPathRoutes(routes: PathRouteMap<T>, method: string, targetPath: string)
+    private _match(routes: RegExpRouteMap<T>, method: string, targetPath: string)
         : MatchResult<T> {
         if (!routes) return null;
-        let routeMap = routes.get(targetPath);
-        if (!routeMap) return null;
-        let result = routeMap.definitions[method];
-        if (!result && method === HttpMethod.Head) {
-            result = routeMap.definitions[HttpMethod.Get];
-        }
-        if (!result) {
-            result = routeMap.definitions[HttpMethod.Wildcard];
-        }
-        if (result) return {
-            router: this,
-            route: result,
-            descriptor: routeMap,
-            data: null,
-            params: null
-        };
-        return null;
-    }
-
-    private _matchRegExpRoutes(routes: RegExpRouteMap<T>, method: string, targetPath: string)
-        : MatchResult<T> {
-        if (!routes) return null;
-        let result = null as MatchResult<T>;
-        routes.find(x => {
+        for (let i = 0; i < routes.length; i++) {
+            let x = routes[i];
             let match = targetPath.match(x.test);
             if (match) {
                 let methodResult = x.definitions[method];
-
                 if (!methodResult && method === HttpMethod.Head) {
                     methodResult = x.definitions[HttpMethod.Get];
                 }
-                
                 if (!methodResult) {
                     methodResult = x.definitions[HttpMethod.Wildcard];
                 }
-
-                if (!methodResult) {
+                if (methodResult) {
                     let paramKeys = methodResult.paramKeys;
                     let params = paramKeys ? createRouteParams(match, paramKeys) : null;
-                    result = {
+                    let result = {
                         router: this,
                         route: methodResult,
                         descriptor: x,
                         data: match,
-                        params
+                        params,
+                        path: match[0],
                     };
-                    return true;
+                    return result;
                 }
             }
-            return false;
-        });
-        return result;
+        }
+        return null;
     }
 
     /**
      * Returns a middleware function that executes the router. It composes
-     * the middlewares of the router when called and returns a middleware.
+     * the middlewares of the router when called and returns one middleware
+     * that executes the router pipeline.
      * 
-     * When the middleware executes, the inner middleware chain is executed,
-     * followed by matched route is a received as the 'next' middleware for
-     * the last middleware in the chain, and the matched route also receives,
-     * the parent chain as 'next', should the decide to continue the chain.
-     * 
-     * Routers automatically mark route as handled with 'routeHandled'
-     * when a route is matched, just before execution of the matched route.
-     * So the matched route can reset it if needed for advanced cases.
-     * 
-     * @param debugName {string} This is an optional string that is helpful
-     * when debugging route matches. It's used as a title for all debug
-     * messages emitted from the router.
+     * If it matches, the control moves over to the current pipeline which
+     * executes the middlewares and the handler. If no match is found,
+     * the router pipeline is skipped, and the control passes on to the
+     * parent pipeline.
+     *
      */
-    asMiddleware(debugName?: string): Middleware<T> {
-        let debug = debugModule("http-micro:router:" + (debugName || "$"));
-        let middlewares = this._middlewares || [];
+    build() : Middleware<T> {
+        return createRouteHandler(this);
+    }
+}
 
-        let routeHandler = (ctx: T, next: NextMiddleware): Promise<void> => {
-            if (ctx.routeHandled) return Promise.resolve();
-            let method = ctx.getHttpMethod();
-            let path = ctx.getRoutePath();
-            debug("test: method: %s, path: %s", method, path);
-            let match = this.match(path, method);
-            if (match) {
-                let handler = match.route.handler;
-                if (handler) {
-                    debug("match");
-                    ctx.markRouteHandled();
-                    let routeData = ctx.getRouteData();
-                    routeData.add(match.route, match.descriptor, match.data, match.params);
-                    return handler(ctx, next);
+export function createRouteHandler<T extends Context>(router: Router<T>): Middleware<T> {    
+    return function routeHandler(context: T, next: NextMiddleware) {
+        let routeData = context.getRouteData();
+        let method = context.getHttpMethod();
+        let path = routeData.getPendingRoutePath();
+        let match = router.match(path, method);
+        if (match) {
+            routeData.push(match);
+            let isMatchReset = false;
+
+            let resetIfNeeded = (passthrough?: any) => {
+                if (!isMatchReset) {
+                    if (routeData.getCurrentMatch() === match)
+                        routeData.pop();
+                    isMatchReset = true;
                 }
+                return passthrough;
             }
-            debug("no match");
-            return next();
-        }
 
-        return middlewares.length > 0 ?
-            compose(...middlewares, routeHandler) : routeHandler;
+            let nextHandler = () => {
+                resetIfNeeded();
+                return next();
+            }
+
+            let errorHandler = (err: Error) => {
+                resetIfNeeded(); throw err;
+            }
+            
+            let middlewares = (router as any)._middlewares;            
+            if (middlewares && middlewares.length > 0) {
+                let handler = () => match.route.handler(context, nextHandler);                
+                return dispatch(context, handler, middlewares)
+                    .then(resetIfNeeded)
+                    .catch(errorHandler);
+            }
+            return match.route.handler(context, nextHandler)
+                .catch(errorHandler);
+        }
+        return next();
     }
 }
 

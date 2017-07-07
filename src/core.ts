@@ -2,8 +2,8 @@ import * as http from "http";
 import * as debugModule from "debug";
 import * as net from "net";
 import * as utils from "./utils";
-
-const debug = debugModule("http-micro:core");
+import { Context } from "./context";
+import { Router } from "./router";
 
 export interface ItemsContainer {
     items: Map<string, any>;
@@ -13,38 +13,32 @@ export interface ItemsContainer {
 }
 
 export interface IApplication extends ItemsContainer {
-    middlewares: any;
+    middlewares: Middleware<any>[];
     listen(...args: any[]): any;
     getRequestListener(): (req: http.IncomingMessage, res: http.ServerResponse) => void;
-    use(middleware: any): IApplication;
-    setErrorHandler(handler: (err: Error) => void): void;
-    setFallbackHandler(handler: any): void;
+    use(...middlewares: Middleware<any>[]): IApplication;
+    use(router: Router<any>): IApplication;
+    setErrorHandler(handler: ErrorHandler<any>): void;
+    setFallbackHandler(handler: Middleware<any>): void;
 }
 
-export interface IContext extends ItemsContainer {
-    req: http.IncomingMessage;
-    res: http.ServerResponse;
-    app: IApplication;
-}
-
-export type Middleware<T extends IContext> = (context: T, next: NextMiddleware) => MiddlewareResult;
+export type Middleware<T extends Context> = (context: T, next: NextMiddleware) => MiddlewareResult;
 export type MiddlewareResult = Promise<void>;
 export type NextMiddleware = () => MiddlewareResult;
-export type ErrorHandler<T extends IContext> = (err: Error, req: http.IncomingMessage, res: http.ServerResponse, context?: T) => void;
+export type ErrorHandler<T extends Context> = (err: Error, req: http.IncomingMessage, res: http.ServerResponse, context?: T) => void;
 
-export class ApplicationCore<T extends IContext> implements IApplication {
+export class Application<T extends Context> implements IApplication {
     middlewares: Middleware<T>[] = [];
     items: Map<string, any>;
     private _socketClientErrorHandler: (err: any, socket: net.Socket) => void;
 
     constructor(
-        private _contextFactory: (app: ApplicationCore<T>,
+        private _contextFactory: (app: Application<T>,
             req: http.IncomingMessage, res: http.ServerResponse) => T,
         private _errorHandler: ErrorHandler<T> = utils.defaultErrorHandler,
         private _fallbackHandler = utils.defaultFallbackNotFoundHandler) {}
 
     listen(...args: any[]) {
-        debug('listen');
         const server = http.createServer(this.getRequestListener());
         server.on("clientError", (err: any, socket: net.Socket) => {
             let handler = this._socketClientErrorHandler || utils.defaultClientErrorHandler;
@@ -60,10 +54,10 @@ export class ApplicationCore<T extends IContext> implements IApplication {
             let errorHandler = this._errorHandler || utils.defaultErrorHandler;
             let fallbackHandler = this._fallbackHandler || utils.defaultFallbackNotFoundHandler;
 
-            let context: T = null;            
+            let context: T = null;
             try {
                 context = this._contextFactory(this, req, res);
-                fn(context, fallbackHandler.bind(null, context, null))
+                fn(context, () => fallbackHandler(context, null))
                     .catch((err) => errorHandler(err, req, res, context));
             } catch (err) {
                 errorHandler(err, req, res, context);
@@ -71,8 +65,20 @@ export class ApplicationCore<T extends IContext> implements IApplication {
         };
     }
 
-    use(middleware: Middleware<T> | Middleware<T>[]) {
-        this.middlewares = this.middlewares.concat(middleware);
+    use(router: Router<T>): Application<T>;
+    use(...middleware: Middleware<T>[]): Application<T>;
+    use(...args: any[]) {
+        if (args.length === 1) {
+            let router = args[0];
+            if (router instanceof Router) {
+                let handler = router.build();
+                if (!this.middlewares) this.middlewares = [];
+                this.middlewares.push(handler);
+                return this;
+            }
+        }
+        if (!this.middlewares) this.middlewares = [];
+        this.middlewares = this.middlewares.concat(args);
         return this;
     }
 

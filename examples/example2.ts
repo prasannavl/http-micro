@@ -1,23 +1,23 @@
 import * as http from "http";
 import * as path from "path";
-import { Middleware, ApplicationCore, Context, IContext, Router, mount } from "http-micro";
+import { Middleware, Application, Context, Router } from "http-micro";
 import * as url from "url";
 import * as os from "os";
 
 class AppContext extends Context {}
 
 export class Server {
-    private server: ApplicationCore<AppContext>;
+    private server: Application<AppContext>;
 
     constructor() {
-        this.server = new ApplicationCore<AppContext>(
+        this.server = new Application<AppContext>(
             (app, req, res) => new AppContext(app, req, res));
         this.setupMiddleware();
     }
 
     setupMiddleware() {
         let app = this.server;
-
+        
         app.use((ctx, next) => {
             if (ctx.req.url.endsWith("raw")) {
                 ctx.res.end("Hello from raw middlware!");
@@ -27,21 +27,19 @@ export class Server {
             }
         });
 
-        app.use(mount("/api", (ctx, next) => {
+        let root = new Router<any>();     
+
+        root.all("/api", (ctx, next) => {
             ctx.sendAsJson({
                 message: "api route!",
-                routePath: ctx.getRoutePath(),
-                path: ctx.getUrl(),
             });
             return Promise.resolve();
-        }, "api"));
-
-        app.use(mount("/", this.getRouter(), "root"));
-        app.use(mount("/chain/", this.getRouterChain(), "chain"));
-
-        app.use(async (ctx, next) => {
-            ctx.res.end("Not found");
         });
+
+        root.use("/chain", this.getRouterChain());
+
+        app.use(root);
+        app.use(this.getRouter());
     }
 
     private getRouter() {
@@ -103,15 +101,13 @@ export class Server {
             return Promise.resolve();
         });
 
-        router.use(mount("/c1", router2, "router2"));
-        router.use(mount("/c2/", router3, "router3"));
+        router.use("/c1", router2);
+        router.use("/c2", router3);
 
         return router;
     }
 
-    run(port: number, host = "localhost") {
-        this.server.listen(port, host, () => {
-            console.log("server listening on %s:%s", host, port);
-        });
+    run(port: number, host = "localhost", ...args: any[]) {
+        this.server.listen(port, host, ...args);
     }
 }

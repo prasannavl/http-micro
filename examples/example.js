@@ -1,12 +1,11 @@
 const micro = require("http-micro");
 const url = require("url");
-const mount = micro.mount;
 
 let app = new micro.Application();
 // When using Typescript, context can be 
 // generically typed to one that implements
 // the IContext interface.
-// `let app = new micro.ApplicationCore<MyContext>();`
+// `let app = new micro.Application<MyContext>();`
 
 // Raw node req, and res untouched.
 // Convenience functions are also provided, used
@@ -68,10 +67,10 @@ router2.get("/hello", (ctx) => {
     return Promise.resolve();
 });
 
-router.use(mount("/r1", router1, "router1"));
-router.use(mount("/r2/", router2, "router2"));
+router.use("/r1", router1);
+router.use("/r2", router2);
 
-app.use(mount("/", router, "root-router"));
+app.use(router);
 
 app.listen(8000, "localhost", () => {
     console.log("listening");

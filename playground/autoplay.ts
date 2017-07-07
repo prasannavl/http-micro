@@ -1,5 +1,5 @@
 import * as http from "http";
-import * as micro from "http-micro";
+import { Application,Context, Router } from "http-micro";
 import * as url from "url";
 import * as util from "util";
 
@@ -8,42 +8,60 @@ function run() {
         host: "localhost",
         port: 8000,
         protocol: "http:",
-        path: "/test",
-        headers: {
-        }
     } as http.RequestOptions;
+
+    let requests = [
+        { path: "/test" },
+        { path: "/hello" },
+        { path: "/api" },
+        { path: "/chain/c1/hello" },
+        { path: "/chain/c2/hello" }
+    ];
 
     new Server().run(opts.port, opts.host, () => {
         console.log("server running on %s:%s", opts.host, opts.port);
-        http.request(opts, (res) => {
-            console.log("-----");            
-            console.log(`${res.statusCode} ${res.statusMessage}`);
-            console.log(`${util.inspect(res.headers, false, null)}\r\n`);
-            res.on("data", (chunk) => {
-                process.stdout.write(chunk);
-            });
-            res.on("end", () => {
-                console.log("\r\n-----");
-            });
-        }).end();
+        requests.forEach(x => {
+            http.request(Object.assign({}, x, opts), (res) => {
+                console.log("-----");
+                console.log(`${res.statusCode} ${res.statusMessage}`);
+                console.log(`${util.inspect(res.headers, false, null)}\r\n`);
+                res.on("data", (chunk) => {
+                    process.stdout.write(chunk);
+                });
+                res.on("end", () => {
+                    console.log("\r\n-----");
+                });
+            }).end();
+        });
     });
 }
 
-class Server {
-    private server: micro.Application;
+class AppContext extends Context {}
+
+export class Server {
+    private server: Application<AppContext>;
 
     constructor() {
-        this.server = new micro.Application();
+        this.server = new Application<AppContext>(
+            (app, req, res) => new AppContext(app, req, res));
         this.setupMiddleware();
     }
-    
+
     setupMiddleware() {
         let app = this.server;
-        app.use(micro.mount("/", this.getRouter(), "root"));
+        app.use((ctx, next) => {
+            if (ctx.req.url.endsWith("raw")) {
+                ctx.res.end("Hello from raw middlware!");
+                return Promise.resolve();
+            } else {
+                return next();
+            }
+        });
+        app.use(this.getRouter());
     }
 
     private getRouter() {
-        let router = new micro.Router();
+        let router = new Router<AppContext>();
 
         router.get("/hello", (ctx, next) => {
             ctx.sendText("Hello route!");
@@ -55,19 +73,24 @@ class Server {
             return Promise.resolve();
         });
 
+        router.get("/hello-object", (ctx, next) => {
+            ctx.sendAsJson({ message: "Hello world!" });
+            return Promise.resolve();
+        });
+
+        router.post("/echo-object", async (ctx, next) => {
+            let body = await ctx.getRequestBody();
+            ctx.send(body);
+            return Promise.resolve();
+        });
+
         router.get("/hello-data/:id", (ctx, next) => {
             ctx.sendAsJson(ctx.getRouteData());
             return Promise.resolve();
         });
-
         
         router.get(/reg(ex)per$/i, (ctx, next) => {
             ctx.sendAsJson(ctx.getRouteData());
-            return Promise.resolve();
-        });
-
-        router.get("/hello-object", (ctx, next) => {
-            ctx.sendAsJson({ message: "Hello world!" });
             return Promise.resolve();
         });
 
@@ -77,6 +100,51 @@ class Server {
             res.end();
             return Promise.resolve();
         });
+
+        router.all("/api", (ctx, next) => {
+            ctx.sendAsJson({
+                message: "api route!",
+            });
+            return Promise.resolve();
+        });
+
+        router.get("/api/numbers", (ctx, next) => {
+            let str = "";
+            for (let i = 0; i < 1000; i++) {
+                str += i.toString() + "\n";
+            }
+            ctx.res.end(str);
+            return Promise.resolve();
+        });
+
+        router.use("/chain", this.getRouterChain());
+        return router;
+    }
+
+    private getRouterChain() {
+        let router = new Router<AppContext>();
+
+        router.get("/hello", (ctx, next) => {
+            ctx.res.end("chain 0: hello!");
+            return Promise.resolve();
+        });
+
+        let router2 = new Router<AppContext>();
+
+        router2.get("/hello", (ctx, next) => {
+            ctx.res.end("chain 1: hello!");
+            return Promise.resolve();
+        });
+
+        let router3 = new Router<AppContext>();
+
+        router3.get("/hello", (ctx, next) => {
+            ctx.res.end("chain 2: hello!");
+            return Promise.resolve();
+        });
+
+        router.use("/c1", router2);
+        router.use("/c2", router3);
 
         return router;
     }

@@ -1,5 +1,4 @@
-import { Middleware, IContext, IApplication, ApplicationCore } from "./core";
-import { NodeContext } from "./core-node";
+import { Middleware, IApplication, Application } from "./core";
 import * as http from "http";
 import * as url from "url";
 import { stringify } from "./utils";
@@ -7,14 +6,49 @@ import { isString } from "./lang";
 import { RouteData } from "./route-data";
 import * as bodyParser from "./body-parser";
 
-export class Context extends NodeContext {
+export class Context {
+    
+    items: Map<string, any>;
     private _url: url.Url = null;
     private _ipAddresses: string[] = null;
-    private _routePath: string = null;
     private _routeData: RouteData = null;
     private _bodyParseTask: any = null;
 
-    routeHandled = false;
+    constructor(
+        public app: IApplication,
+        public req: http.IncomingMessage,
+        public res: http.ServerResponse) {}
+
+    getItem(key: string): any {
+        if (this.items) {
+            let res = this.items.get(key);
+            if (res !== undefined) return res;
+        }
+        if (this.app.items) {
+            let res = this.items.get(key);
+            if (res !== undefined) return res;
+        }
+        return null;
+    }
+
+    setItem(key: string, value: any): void {
+        if (!this.items) {
+            this.items = new Map<string, any>();
+        }
+        this.items.set(key, value);
+    }
+
+    hasItem(key: string): boolean {
+        if (this.items) {
+            let res = this.items.has(key);
+            if (res) return res;
+        }
+        if (this.app.items) {
+            let res = this.items.get(key);
+            if (res) return res;
+        }
+        return false;
+    }
 
     getResponseHeaders() {
         return (this.res as any).getHeaders();
@@ -214,27 +248,12 @@ export class Context extends NodeContext {
         return this._url;
     }
 
-    getRoutePath() {
-        if (this._routePath === null) {
-            this._routePath = this.getUrl().pathname;
-        }
-        return this._routePath;
-    }
-
-    setRoutePath(path: string) {
-        this._routePath = path;
-    }
-
     getRouteData() {
-        return this._routeData || (this._routeData = new RouteData());
+        return this._routeData || (this._routeData = new RouteData(this.getUrl().pathname));
     }
 
     getRouteParams() {
         return this.getRouteData().params;
-    }
-
-    setRouteData(value: RouteData) {
-        this._routeData = value;
     }
 
     getHttpMethod() {
@@ -291,10 +310,6 @@ export class Context extends NodeContext {
 
     isEncrypted() {
         return (this.req.connection as any).encrypted ? true : false;
-    }
-
-    markRouteHandled() {
-        this.routeHandled = true;
     }
 
     getRequestBody<T>(parser?: bodyParser.Parser): Promise<T> {
