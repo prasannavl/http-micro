@@ -1,12 +1,14 @@
 const micro = require("http-micro");
 const url = require("url");
 
-let app = new micro.Application();
+let app = new micro.App();
 // When using Typescript, context can be 
 // generically typed to one that implements
 // the IContext interface.
-// `let app = new micro.Application<MyContext>();`
-
+//
+// `let app = new micro.Application<MyContext>(
+//          (app, req, res) => new MyContext());`
+//
 // Raw node req, and res untouched.
 // Convenience functions are also provided, used
 // later in the example.

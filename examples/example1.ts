@@ -3,10 +3,10 @@ import * as micro from "http-micro";
 import * as url from "url";
 
 export class Server {
-    private server: micro.Application;
+    private server: micro.App;
 
     constructor() {
-        this.server = new micro.Application();
+        this.server = new micro.App();
         this.setupMiddleware();
     }
     

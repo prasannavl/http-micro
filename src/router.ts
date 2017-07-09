@@ -52,7 +52,7 @@ export type RouterOpts = {
     exhaustive?: boolean;
 };
 
-export class Router<T extends Context> {
+export class Router<T extends Context = Context> {
 
     static Defaults: RouterOpts = { strict: true, end: false, sensitive: true, exhaustive: false };
 

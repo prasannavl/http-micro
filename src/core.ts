@@ -2,7 +2,7 @@ import * as http from "http";
 import * as debugModule from "debug";
 import * as net from "net";
 import * as utils from "./utils";
-import { Context } from "./context";
+import { Context, contextFactory } from "./context";
 import { Router } from "./router";
 
 export interface ItemsContainer {
@@ -21,12 +21,14 @@ export interface IApplication extends ItemsContainer {
     setFallbackHandler(handler: Middleware<any>): void;
 }
 
-export type Middleware<T extends Context> = (context: T, next: NextMiddleware) => MiddlewareResult;
+export type Middleware<T extends Context = Context>
+    = (context: T, next: NextMiddleware) => MiddlewareResult;
 export type MiddlewareResult = Promise<void>;
 export type NextMiddleware = () => MiddlewareResult;
-export type ErrorHandler<T extends Context> = (err: Error, req: http.IncomingMessage, res: http.ServerResponse, context?: T) => void;
+export type ErrorHandler<T extends Context = Context>
+    = (err: Error, req: http.IncomingMessage, res: http.ServerResponse, context?: T) => void;
 
-export class Application<T extends Context> implements IApplication {
+export class Application<T extends Context = Context> implements IApplication {
     middlewares: Middleware<T>[] = [];
     items: Map<string, any>;
     private _socketClientErrorHandler: (err: any, socket: net.Socket) => void;
@@ -43,7 +45,7 @@ export class Application<T extends Context> implements IApplication {
             let handler = this._socketClientErrorHandler || utils.defaultClientErrorHandler;
             handler(err, socket);
         });
-        return server.listen.apply(server, arguments);
+        return server.listen.apply(server, args);
     }
 
     getRequestListener(): (req: http.IncomingMessage, res: http.ServerResponse) => void {
@@ -52,7 +54,6 @@ export class Application<T extends Context> implements IApplication {
         return (req, res) => {
             let errorHandler = this._errorHandler || utils.defaultErrorHandler;
             let fallbackHandler = this._fallbackHandler || utils.defaultFallbackNotFoundHandler;
-
             let context: T = null;
             try {
                 context = this._contextFactory(this, req, res);
@@ -104,3 +105,8 @@ export class Application<T extends Context> implements IApplication {
     }
 }
 
+export class App extends Application<Context> {
+    constructor() {
+        super(contextFactory);
+    }
+}

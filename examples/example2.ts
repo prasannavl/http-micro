@@ -27,7 +27,7 @@ export class Server {
             }
         });
 
-        let root = new Router<any>();     
+        let root = new Router();     
 
         root.all("/api", (ctx, next) => {
             ctx.sendAsJson({
@@ -37,9 +37,8 @@ export class Server {
         });
 
         root.use("/chain", this.getRouterChain());
-
-        app.use(root);
         app.use(this.getRouter());
+        app.use(root);
     }
 
     private getRouter() {

@@ -1,5 +1,5 @@
 import * as http from "http";
-import { Application,Context, Router } from "http-micro";
+import { Application, Context, Router, App } from "http-micro";
 import * as url from "url";
 import * as util from "util";
 
@@ -26,7 +26,7 @@ function run() {
     new Server().run(opts.port, opts.host, () => {
         console.log("server running on %s:%s", opts.host, opts.port);
         requests.forEach(x => {
-            let req = http.request(Object.assign({}, x, opts), (res) => {
+            let req = http.request(Object.assign({}, opts, x), (res) => {
                 console.log("-----");
                 console.log(`${res.statusCode} ${res.statusMessage}`);
                 console.log(`${util.inspect(res.headers, false, null)}\r\n`);
