@@ -1,5 +1,6 @@
 import * as http from "http";
 import * as os from "os";
+import * as httpError from "http-errors";
 
 export const InnerErrorKey = "cause";
 export const HttpErrorStatusCodeKey = "statusCode";
@@ -46,6 +47,17 @@ export function isHttpError(err: Error) {
  */
 export function wrapError(targetError: Error, originalError: Error) {
     (targetError as any)[InnerErrorKey] = originalError;
+}
+
+export function intoHttpError(err: Error, defaultCode: number = 500) {
+    let errObj;
+    if (isHttpError(err)) {
+        errObj = err;
+    } else {
+        errObj = httpError(defaultCode);
+        wrapError(errObj, err);
+    }
+    return errObj;
 }
 
 export function errorToResponse(err: Error, res: http.ServerResponse) {
