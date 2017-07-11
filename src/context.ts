@@ -19,19 +19,20 @@ export class Context {
         public req: http.IncomingMessage,
         public res: http.ServerResponse) {}
 
-    getItem(key: string): any {
+    getItem<T = any>(key: string): T {
         if (this.items) {
             let res = this.items.get(key);
             if (res !== undefined) return res;
         }
-        if (this.app.items) {
-            let res = this.items.get(key);
+        let appItems = this.app.items;
+        if (appItems) {
+            let res = appItems.get(key);
             if (res !== undefined) return res;
         }
         return null;
     }
 
-    setItem(key: string, value: any): void {
+    setItem<T = any>(key: string, value: T): void {
         if (!this.items) {
             this.items = new Map<string, any>();
         }
@@ -43,8 +44,9 @@ export class Context {
             let res = this.items.has(key);
             if (res) return res;
         }
-        if (this.app.items) {
-            let res = this.items.get(key);
+        let appItems = this.app.items;        
+        if (appItems) {
+            let res = appItems.get(key);
             if (res) return res;
         }
         return false;
