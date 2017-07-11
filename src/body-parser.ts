@@ -4,9 +4,10 @@ import * as qs from "querystring";
 import * as typeis from "type-is";
 import * as contentType from "content-type";
 import * as mimeTypes from "mime-types";
+import * as httpError from "http-errors";
 import { intoHttpError } from "./error-utils";
 
-export type ParserCallback = (error: rawBody.RawBodyError, body?: string) => void;
+export type ParserCallback = (error: rawBody.RawBodyError, body?: string | Buffer) => void;
 export type Parser = (req: http.IncomingMessage, callback: ParserCallback) => void;
 const defaultLimit = 1024 * 1024 / 2; // 512Kb
 
@@ -57,15 +58,17 @@ export type JsonBodyParserOpts = rawBody.Options & { reviver?: (key: any, value:
 
 export function jsonBodyParserFactory(opts: JsonBodyParserOpts, baseParser?: Parser) {
     let rawParser = baseParser || rawBodyParserFactory();
-    let reviver = opts.reviver;
+    let reviver = opts ? opts.reviver : undefined;
 
     return function jsonParser(req: http.IncomingMessage, callback: ParserCallback, baseParserOpts?: any) {
         rawParser(req, function (err, body) {
             if (err) {
                 return callback(err);
-            }
+            }  
             let res;
             try {
+                if (typeof body !== "string")
+                    throw new Error("buffered raw body is not a string to parse as json");
                 res = JSON.parse(body, reviver);
             } catch (e) {
                 return callback(e);
@@ -105,6 +108,8 @@ export function formBodyParserFactory(opts: FormBodyParserOpts, baseParser?: Par
             }
             let res;
             try {
+                if (typeof body !== "string")
+                    throw new Error("buffered raw body is not a string to parse as url encoded form");
                 res = qsParse(body, sep, eq, options);
             } catch (e) {
                 return callback(e);
@@ -116,12 +121,11 @@ export function formBodyParserFactory(opts: FormBodyParserOpts, baseParser?: Par
 
 export type AnyParserOptions = FormBodyParserOpts & JsonBodyParserOpts;  
 
-export function anyBodyParserFactory(opts: AnyParserOptions, baseParser?: Parser) {
+export function anyBodyParserFactory(opts?: AnyParserOptions, baseParser?: Parser) {
     let rawParser = baseParser || rawBodyParserFactory();
     let jsonParser = jsonBodyParserFactory(opts, rawParser);
     let formParser = formBodyParserFactory(opts, rawParser);
     let types = ["json", "urlencoded"];
-    // TODO: Write parser for multi-part form data.
     
     return function anyBodyParser(req: http.IncomingMessage, callback: ParserCallback, baseParserOpts?: any) {
         if (handleRequestBodyAbsence(req, callback)) return;
@@ -157,15 +161,23 @@ export function createAsyncParser(parser: Parser) {
     }
 }
 
-export function parseBody<T>(req: http.IncomingMessage, parser: Parser = anyBodyParserFactory({})) {
+export function parseBody<T>(req: http.IncomingMessage, parser: Parser = anyBodyParserFactory()) {
     let finalParser = createAsyncParser(parser);
     return finalParser(req) as Promise<T>;
 }
 
 export function handleRequestBodyAbsence(req: http.IncomingMessage, callback: ParserCallback) {
-    if (!typeis.hasBody(req)) {
+    if (!hasBody(req)) {
         callback(null, null);
         return true;
     }
+    return false;
+}
+
+export function hasBody(req: http.IncomingMessage) {
+    let headers = req.headers;
+    if (headers["transfer-encoding"] !== undefined) return true;
+    let contentLength = headers["content-length"];
+    if (contentLength && Number(contentLength) > 0) return true;
     return false;
 }

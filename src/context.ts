@@ -9,6 +9,8 @@ import * as bodyParser from "./body-parser";
 export class Context {
     
     items: Map<string, any>;
+    parser: bodyParser.Parser;
+
     private _url: url.Url = null;
     private _ipAddresses: string[] = null;
     private _routeData: RouteData = null;
@@ -17,7 +19,11 @@ export class Context {
     constructor(
         public app: IApplication,
         public req: http.IncomingMessage,
-        public res: http.ServerResponse) {}
+        public res: http.ServerResponse,
+        parser?: bodyParser.Parser) {
+        if (parser !== undefined) this.parser = parser;
+        if (this.parser === undefined) this.parser = bodyParser.anyBodyParserFactory();
+    }
 
     getItem<T = any>(key: string): T {
         if (this.items) {
@@ -128,6 +134,7 @@ export class Context {
         this.send(reason, headers, 401);
     }
 
+    // TODO: add sendFile, sendStream
     send(body: any, headers?: any, code = 200) {
         this.setHeaders(headers);
         this.setStatus(code);
@@ -316,7 +323,7 @@ export class Context {
 
     getRequestBody<T>(parser?: bodyParser.Parser): Promise<T> {
         if (this._bodyParseTask === null) {
-            let task = bodyParser.parseBody<T>(this.req, parser);
+            let task = bodyParser.parseBody<T>(this.req, parser || this.parser);
             this._bodyParseTask = task;
             return task;
         }
@@ -325,6 +332,6 @@ export class Context {
 }
 
 export function contextFactory(app: IApplication,
-    req: http.IncomingMessage, res: http.ServerResponse) {
-    return new Context(app, req, res);
+    req: http.IncomingMessage, res: http.ServerResponse, parser?: bodyParser.Parser) {
+    return new Context(app, req, res, parser);
 }
