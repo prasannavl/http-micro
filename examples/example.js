@@ -74,6 +74,6 @@ router.use("/r2", router2);
 
 app.use(router);
 
-app.listen(8000, "localhost", () => {
+app.createServer().listen(8000, "localhost", () => {
     console.log("listening");
 });

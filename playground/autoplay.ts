@@ -23,7 +23,7 @@ function run() {
         { path: "/chain/c2/hello" }
     ];
 
-    new Server().run(opts.port, opts.host, () => {
+    new Server().listen(opts.port, opts.host, () => {
         console.log("server running on %s:%s", opts.host, opts.port);
         requests.forEach(x => {
             let req = http.request(Object.assign({}, opts, x), (res) => {
@@ -49,16 +49,16 @@ function run() {
 class AppContext extends Context {}
 
 export class Server {
-    private server: Application<AppContext>;
+    private app: Application<AppContext>;
 
     constructor() {
-        this.server = new Application<AppContext>(
+        this.app = new Application<AppContext>(
             (app, req, res) => new AppContext(app, req, res));
         this.setupMiddleware();
     }
 
     setupMiddleware() {
-        let app = this.server;
+        let app = this.app;
         app.use((ctx, next) => {
             if (ctx.req.url.endsWith("raw")) {
                 ctx.res.end("Hello from raw middlware!");
@@ -167,8 +167,9 @@ export class Server {
         return router;
     }
 
-    run(port: number, host = "localhost", ...args: any[]) {
-        this.server.listen(port, host, ...args);
+    listen(port: number, host = "localhost", ...args: any[]) {
+        let server = this.app.createServer();
+        (server.listen as any)(port, host, ...args);
     }
 }
 

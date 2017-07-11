@@ -3,20 +3,21 @@ import * as path from "path";
 import { Middleware, Application, Context, Router } from "http-micro";
 import * as url from "url";
 import * as os from "os";
+import { MicroServer } from "http-micro/lib/server-utils";
 
 class AppContext extends Context {}
 
 export class Server {
-    private server: Application<AppContext>;
+    private app: Application<AppContext>;
 
     constructor() {
-        this.server = new Application<AppContext>(
+        this.app = new Application<AppContext>(
             (app, req, res) => new AppContext(app, req, res));
         this.setupMiddleware();
     }
 
     setupMiddleware() {
-        let app = this.server;
+        let app = this.app;
         
         app.use((ctx, next) => {
             if (ctx.req.url.endsWith("raw")) {
@@ -37,6 +38,14 @@ export class Server {
         });
 
         root.use("/chain", this.getRouterChain());
+        root.use("/shutdown", (ctx) => {
+            console.log("time: " + new Date().toTimeString() + "; shutdown request");
+            ctx.res.end();
+            ctx.getItem<MicroServer>("_server").shutdown(5000, () => {
+                console.log("time: " + new Date().toTimeString() + "; shutting down");
+            });
+            return Promise.resolve();
+        });
         app.use(this.getRouter());
         app.use(root);
     }
@@ -107,6 +116,8 @@ export class Server {
     }
 
     run(port: number, host = "localhost", ...args: any[]) {
-        this.server.listen(port, host, ...args);
+        let server = this.app.createServer();
+        this.app.setItem("_server", server);
+        (server.listen as any)(port, host, ...args);
     }
 }

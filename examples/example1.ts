@@ -29,9 +29,7 @@ export class Server {
         });
     }
 
-    run(port: number, host = "localhost") {
-        this.server.listen(port, host, () => {
-            console.log("server listening on %s:%s", host, port);
-        });
+    listen(port: number, host = "localhost", ...args: any[]) {
+        (this.server.createServer().listen as any)(port, host, ...args);
     }
 }
