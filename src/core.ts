@@ -1,21 +1,21 @@
 import * as http from "http";
-import * as debugModule from "debug";
-import * as net from "net";
+import * as https from "https";
 import * as utils from "./utils";
 import { Context, contextFactory } from "./context";
 import { Router } from "./router";
+import { attachServerExtensions, MicroServer } from "./server-utils";
 
 export interface ItemsContainer {
     items: Map<string, any>;
-    getItem(key: string): any;
-    setItem(key: string, value: any): void;
+    getItem<T = any>(key: string): T;
+    setItem<T = any>(key: string, value: T): void;
     hasItem(key: string): boolean;
 }
 
 export interface IApplication extends ItemsContainer {
     middlewares: Middleware<any>[];
-    listen(...args: any[]): any;
-    getRequestListener(): (req: http.IncomingMessage, res: http.ServerResponse) => void;
+    createServer(secureOpts?: https.ServerOptions): MicroServer;
+    createHandler(): (req: http.IncomingMessage, res: http.ServerResponse) => void;
     use(...middlewares: (Middleware<any> | Router<any>)[]): IApplication;
     setErrorHandler(handler: ErrorHandler<any>): void;
     setFallbackHandler(handler: Middleware<any>): void;
@@ -29,26 +29,25 @@ export type ErrorHandler<T extends Context = Context>
     = (err: Error, req: http.IncomingMessage, res: http.ServerResponse, context?: T) => void;
 
 export class Application<T extends Context = Context> implements IApplication {
+
     middlewares: Middleware<T>[] = [];
     items: Map<string, any>;
-    private _socketClientErrorHandler: (err: any, socket: net.Socket) => void;
 
     constructor(
         private _contextFactory: (app: Application<T>,
             req: http.IncomingMessage, res: http.ServerResponse) => T,
         private _errorHandler: ErrorHandler<T> = utils.defaultErrorHandler,
-        private _fallbackHandler = utils.defaultFallbackNotFoundHandler) {}
+        private _fallbackHandler = utils.defaultFallbackNotFoundHandler) { }
 
-    listen(...args: any[]) {
-        const server = http.createServer(this.getRequestListener());
-        server.on("clientError", (err: any, socket: net.Socket) => {
-            let handler = this._socketClientErrorHandler || utils.defaultClientErrorHandler;
-            handler(err, socket);
-        });
-        return server.listen.apply(server, args);
+    createServer(secureOpts?: https.ServerOptions) {
+        let isHttps = secureOpts ? true : false;
+        const server = isHttps ?
+            https.createServer(secureOpts, this.createHandler()) :
+            http.createServer(this.createHandler());
+        return attachServerExtensions(server);
     }
 
-    getRequestListener(): (req: http.IncomingMessage, res: http.ServerResponse) => void {
+    createHandler(): (req: http.IncomingMessage, res: http.ServerResponse) => void {
         const fn = utils.compose(...this.middlewares);
         
         return (req, res) => {
@@ -79,18 +78,14 @@ export class Application<T extends Context = Context> implements IApplication {
         this._fallbackHandler = handler;
     }
 
-    setSocketClientErrorHandler(handler: (err: any, socket: net.Socket) => void) {
-        this._socketClientErrorHandler = handler;
-    }
-
-    getItem(key: string): any {
+    getItem<T = any>(key: string): T {
         if (this.items) {
             return this.items.get(key);
         }
         return null;
     }
 
-    setItem(key: string, value: any): void {
+    setItem<T = any>(key: string, value: T): void {
         if (!this.items) {
             this.items = new Map<string, any>();
         }

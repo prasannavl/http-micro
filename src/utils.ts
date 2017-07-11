@@ -50,10 +50,9 @@ export function defaultFallbackNotFoundHandler(context: Context, next: NextMiddl
     return Promise.resolve();
 }
 
-export function defaultClientErrorHandler(err: any, socket: net.Socket) {
+export function defaultClientSocketErrorHandler(err: any, socket: net.Socket) {
     socket.end("HTTP/1.1 400 Bad Request\r\n\r\n");
 }
-
 
 /**
  * Composes multiple middlewares into one middleware that executes the middleware chain.
