@@ -14,9 +14,15 @@ export function rawBodyParserFactory() {
     return function rawParser(req: http.IncomingMessage, callback: ParserCallback, opts?: any) {
         if (handleRequestBodyAbsence(req, callback)) return;
 
-        let limit = opts.limit || defaultLimit;
-        let contentLength = opts.length || Number(req.headers["content-length"]);
-        let encoding = opts.encoding;
+        let limit: number, contentLength: number, encoding: rawBody.Encoding;
+        if (opts) {
+            limit = opts.limit;
+            contentLength = opts.length;
+            encoding = opts.encoding;
+        }
+
+        limit = limit || defaultLimit;
+        contentLength = contentLength || Number(req.headers["content-length"]);
 
         if (encoding === undefined) {
             let contentTypeHeader = req.headers["content-type"];
@@ -85,7 +91,12 @@ export function formBodyParserFactory(opts: FormBodyParserOpts, baseParser?: Par
 
     return function formBodyParser(req: http.IncomingMessage, callback: ParserCallback, baseParserOpts?: any) {
         let baseOpts = baseParserOpts as rawBody.Options;
+        // TODO: Not very happy with the implementation here, for passing override opts to 
+        // the raw parser. It works, however, could be better designed.
         if (!baseOpts || !baseOpts.encoding) {
+            // It's important to pass in the encoding as true (translates to 'utf-8'), 
+            // since, mime-types doesn't resolve the default charset for 
+            // `application/x-www-form-urlencoded`
             baseOpts = Object.assign({}, baseOpts, { encoding: true });
         }
         rawParser(req, function (err, body) {
@@ -110,6 +121,7 @@ export function anyBodyParserFactory(opts: AnyParserOptions, baseParser?: Parser
     let jsonParser = jsonBodyParserFactory(opts, rawParser);
     let formParser = formBodyParserFactory(opts, rawParser);
     let types = ["json", "urlencoded"];
+    // TODO: Write parser for multi-part form data.
     
     return function anyBodyParser(req: http.IncomingMessage, callback: ParserCallback, baseParserOpts?: any) {
         if (handleRequestBodyAbsence(req, callback)) return;
