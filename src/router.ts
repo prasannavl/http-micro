@@ -152,7 +152,7 @@ export class Router<T extends Context = Context> {
     use(path: Route, middleware: Middleware<T>): Router<T>;
     use(...middleware: (Middleware<T> | Router<T>)[]): Router<T>;
     use(...args: any[]) {
-        if (args && args.length === 2) {
+        if (args.length === 2) {
             let first = args[0];
             let second = args[1];
             if (typeof first === "string" || first instanceof RegExp) {
