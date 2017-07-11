@@ -14,9 +14,12 @@ app.use((ctx) => {
 ### Highlights
 
 - Written in and works with Typescipt.
-- No monkey-patching Node's http module or any other module.
 - Koa-like contexts that can be generically typed in TS.
 - Promises for all middleware.
+- In-built body-parsing - but only ever parse the body if you need it,
+  providing better security and performance.
+- In-built graceful server shutdown with proper keep-alive handling.
+- No monkey-patching Node's http module or any other module.
 - Provides middleware chaining and composition over core `http` module.
 - Awaitable `next` middlewares. So, parent middleware has complete
   control over the execution of the next middleware.
@@ -62,7 +65,7 @@ app.use(async (ctx, next) => {
         .pathname == "/async-await") {
         await Promise.resolve();
         await Promise.resolve();
-        ctx.res.end("Hello world from awaited async!");        
+        ctx.res.end("Hello world from awaited async!");
     } else {
         await next();
     }
