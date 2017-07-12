@@ -8,7 +8,7 @@ import * as httpError from "http-errors";
 import { intoHttpError } from "./error-utils";
 
 export type ParserCallback = (error: rawBody.RawBodyError, body?: string | Buffer) => void;
-export type Parser = (req: http.IncomingMessage, callback: ParserCallback) => void;
+export type Parser = (req: http.IncomingMessage, callback: ParserCallback, opts? : any) => void;
 const defaultLimit = 1024 * 1024 / 2; // 512Kb
 
 export function rawBodyParserFactory() {
@@ -38,13 +38,17 @@ export function rawBodyParserFactory() {
                         // No valid encoding was found, but content-type
                         // header is valid. So, pick up the default 
                         // encoding for the mime.
-                        encoding = mimeTypes.charset(ct.type) as string;
+                        let mimeCharset = mimeTypes.charset(ct.type);
+                        encoding = mimeCharset ? mimeCharset : undefined;
                     }
                 } catch (err) {
                     throw intoHttpError(err, 400);
                 }
             }
         }
+
+        if (encoding === undefined && opts)
+            encoding = opts.defaultEncoding;
 
         rawBody(req, {
             limit: limit,
@@ -64,7 +68,7 @@ export function jsonBodyParserFactory(opts: JsonBodyParserOpts, baseParser?: Par
         rawParser(req, function (err, body) {
             if (err) {
                 return callback(err);
-            }  
+            }
             let res;
             try {
                 if (typeof body !== "string")
@@ -87,20 +91,25 @@ export type FormBodyParserOpts = rawBody.Options & {
 
 export function formBodyParserFactory(opts: FormBodyParserOpts, baseParser?: Parser) {
     let rawParser = baseParser || rawBodyParserFactory();
-    let qsParse = opts.parser || qs.parse;
-    let sep = opts.sep;
-    let eq = opts.eq;
-    let options = opts.options;
+    let qsParse: any, sep: string, eq: string, options: qs.ParseOptions;
+    
+    if (opts) {
+        qsParse = opts.parser;
+        sep = opts.sep;
+        eq = opts.eq;
+        options = opts.options;
+    }
+    qsParse = qsParse || qs.parse;
 
     return function formBodyParser(req: http.IncomingMessage, callback: ParserCallback, baseParserOpts?: any) {
-        let baseOpts = baseParserOpts as rawBody.Options;
+        let baseOpts = baseParserOpts;
         // TODO: Not very happy with the implementation here, for passing override opts to 
         // the raw parser. It works, however, could be better designed.
-        if (!baseOpts || !baseOpts.encoding) {
-            // It's important to pass in the encoding as true (translates to 'utf-8'), 
-            // since, mime-types doesn't resolve the default charset for 
+        if (baseOpts == null || baseOpts.defaultEncoding === undefined) {
+            // It's important to pass in the default encoding as true (translates to 'utf-8'), 
+            // since, mime-types don't resolve the default charset for 
             // `application/x-www-form-urlencoded`
-            baseOpts = Object.assign({}, baseOpts, { encoding: true });
+            baseOpts = Object.assign({}, baseOpts, { defaultEncoding: true });
         }
         rawParser(req, function (err, body) {
             if (err) {
@@ -148,7 +157,7 @@ export function anyBodyParserFactory(opts?: AnyParserOptions, baseParser?: Parse
 }
 
 export function createAsyncParser(parser: Parser) {
-    return function parse(req: http.IncomingMessage): Promise<any> {
+    return function parse(req: http.IncomingMessage, opts?: any): Promise<any> {
         return new Promise((resolve, reject) => {
             parser(req, (err, body) => {
                 if (err) {
@@ -156,14 +165,14 @@ export function createAsyncParser(parser: Parser) {
                 } else {
                     resolve(body);
                 }
-            });
+            }, opts);
         });
     }
 }
 
-export function parseBody<T>(req: http.IncomingMessage, parser: Parser = anyBodyParserFactory()) {
+export function parseBody<T>(req: http.IncomingMessage, opts?: any, parser: Parser = anyBodyParserFactory()) {
     let finalParser = createAsyncParser(parser);
-    return finalParser(req) as Promise<T>;
+    return finalParser(req, opts) as Promise<T>;
 }
 
 export function handleRequestBodyAbsence(req: http.IncomingMessage, callback: ParserCallback) {
