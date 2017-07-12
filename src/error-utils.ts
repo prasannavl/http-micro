@@ -1,6 +1,7 @@
 import * as http from "http";
 import * as os from "os";
 import * as httpError from "http-errors";
+import { ResponseUtils } from "./context-utils";
 
 export const InnerErrorKey = "cause";
 export const HttpErrorStatusCodeKey = "statusCode";
@@ -14,6 +15,13 @@ export function getErrorInfo(err: Error) {
  */
 export function isHttpErrorStatusCode(code: number) {
     return Number.isInteger(code) && code > 399 && code < 600;
+}
+
+/**
+ * Check if the status is a 4xx status code.
+ */
+export function isHttpClientErrorStatusCode(code: number) {
+    return Number.isInteger(code) && code > 399 && code < 500;
 }
 
 /**
@@ -45,18 +53,22 @@ export function isHttpError(err: Error) {
  * Wrap an error into another error using the defacto
  * 'cause' property.
  */
-export function wrapError(targetError: Error, originalError: Error) {
+export function wrapError(targetError: Error, originalError: Error, linkMessage = true) {
     (targetError as any)[InnerErrorKey] = originalError;
+    if (linkMessage) targetError.message = originalError.message;
 }
 
-export function intoHttpError(err: Error, defaultCode: number = 500) {
-    let errObj;
+export function intoHttpError(err: Error, code?: number, forceCode = false) {
+    let errObj: httpError.HttpError;
     if (isHttpError(err)) {
-        errObj = err;
-    } else {
-        errObj = httpError(defaultCode);
-        wrapError(errObj, err);
+        let e = err as httpError.HttpError;
+        if (!forceCode || code === e.statusCode) {
+            errObj = e;
+            return errObj;
+        }
     }
+    errObj = httpError(code);
+    wrapError(errObj, err);
     return errObj;
 }
 
@@ -65,8 +77,10 @@ export function errorToResponse(err: Error, res: http.ServerResponse) {
     if (!res.headersSent) {
         res.statusCode = status;
     }
-    if (!res.finished)
+    if (!res.finished) {
+        // TODO: if ((err as any).expose) print error.
         res.end();
+    }
 }
 
 export function makeNestedErrorIterable(err: Error) {

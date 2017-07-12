@@ -1,6 +1,6 @@
 import { RouteDescriptor, RouteDefinition, MatchResult } from "./router";
 
-export class RouteData {
+export class RouteContext {
     params: any = null;    
     private _matches: MatchResult<any>[];
     private _pendingRoutePath: string;

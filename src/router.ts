@@ -1,7 +1,7 @@
 import { Middleware, NextMiddleware } from "./core";
 import { Context } from "./context";
 import { dispatch, addMiddlewares } from "./utils";
-import { RouteData } from "./route-data";
+import { RouteContext } from "./route-context";
 import * as debugModule from "debug";
 import * as pathToRegexp from "path-to-regexp";
 import * as createError from "http-errors";
@@ -282,19 +282,19 @@ export function routeHandler<T extends Context>(
     router: Router<T>, context: T,
     next: NextMiddleware) {
     
-    let routeData = context.getRouteData();
+    let routeContext = context.getRouteContext();
     let method = context.getHttpMethod();
-    let path = routeData.getPendingRoutePath();
+    let path = routeContext.getPendingRoutePath();
     let match = router.match(path, method);
     let middlewares = (router as any)._middlewares;
 
     if (match) {
-        routeData.push(match);
+        routeContext.push(match);
         let isMatchReset = false;
         let resetIfNeeded = (passthrough?: any) => {
             if (!isMatchReset) {
-                if (routeData.getCurrentMatch() === match)
-                    routeData.pop();
+                if (routeContext.getCurrentMatch() === match)
+                    routeContext.pop();
                 isMatchReset = true;
             }
             return passthrough;

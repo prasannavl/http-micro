@@ -3,30 +3,30 @@ import * as http from "http";
 import * as url from "url";
 import { stringify } from "./utils";
 import { isString } from "./lang";
-import { RouteData } from "./route-data";
+import { RouteContext } from "./route-context";
 import * as bodyParser from "./body-parser";
 import * as contentType from "content-type";
 import { intoHttpError } from "./error-utils";
+import { RequestUtils, ResponseUtils } from "./context-utils";
+import * as httpError from "http-errors";
 
 export class Context {
-    
     items: Map<string, any>;
-    parser: bodyParser.Parser;
+    requestParser: bodyParser.Parser;
 
     private _contentType: contentType.MediaType;
-
     private _url: url.Url = null;
     private _ipAddresses: string[] = null;
-    private _routeData: RouteData = null;
+    private _routeContext: RouteContext = null;
     private _bodyParseTask: any = null;
 
     constructor(
         public app: IApplication,
         public req: http.IncomingMessage,
         public res: http.ServerResponse,
-        parser?: bodyParser.Parser) {
-        if (parser !== undefined) this.parser = parser;
-        if (this.parser === undefined) this.parser = bodyParser.anyBodyParserFactory();
+        requestParser?: bodyParser.Parser) {
+        if (requestParser !== undefined) this.requestParser = requestParser;
+        if (this.requestParser === undefined) this.requestParser = bodyParser.anyBodyParserFactory();
     }
 
     getItem<T = any>(key: string): T {
@@ -54,7 +54,7 @@ export class Context {
             let res = this.items.has(key);
             if (res) return res;
         }
-        let appItems = this.app.items;        
+        let appItems = this.app.items;
         if (appItems) {
             let res = appItems.get(key);
             if (res) return res;
@@ -62,58 +62,118 @@ export class Context {
         return false;
     }
 
-    getResponseHeaders() {
-        return (this.res as any).getHeaders();
-    }
-
-    setHeaders(headers: any) {
-        if (!headers) return;
-        // Do the same thing that writeHead does, to ensure compatibility.
-        let keys = Object.keys(headers);
-        let res = this.res;
-        for (let i = 0; i < keys.length; i++) {
-            let key = keys[i];
-            res.setHeader(key, headers[key]);
+    getUrl() {
+        if (this._url === null) {
+            this._url = url.parse(this.req.url);
         }
+        return this._url;
     }
 
-    setContentType(value: string | contentType.MediaType, force = false) {
-        if (this.res.headersSent) return;
-        const ContentTypeKey = "Content-Type";
-        let valueString: string;
-        if (typeof value === "string")
-            valueString = value;
-        else
-            valueString = contentType.format(value);
-        this.setHeader(ContentTypeKey, valueString, force);
+    getRouteContext() {
+        return this._routeContext || (this._routeContext = new RouteContext(this.getUrl().pathname));
+    }
+
+    getRouteParams() {
+        return this.getRouteContext().params;
+    }
+
+    getHttpMethod() {
+        return this.req.method;
+    }
+
+    getRequestStream() {
+        // TODO: Do request stream pre-processing, like 
+        // Content-Encoding, Transfer-Encoding of gzip, etc.
+        return this.req;
+    }
+
+    getResponseStream() {
+        // TODO: Do post processing of stream, like 
+        // Content-Encoding, Transfer-Encoding of gzip, etc.
+        return this.res;
+    }
+
+    getRequestBody<T>(parser?: bodyParser.Parser): Promise<T> {
+        if (this._bodyParseTask === null) {
+            let task = bodyParser.parseBody<T>(this.getRequestStream(), null, parser || this.requestParser);
+            this._bodyParseTask = task;
+            return task;
+        }
+        return this._bodyParseTask;
     }
 
     getContentType() {
         if (this._contentType !== undefined)
             return this._contentType;
+        return (this._contentType = RequestUtils.getContentType(this.req));
+    }
 
-        let contentTypeHeader = this.req.headers["content-type"];
-        let res: contentType.MediaType = null;
-        if (contentTypeHeader) {
-            try {
-                res = contentType.parse(contentTypeHeader);
-            } catch (err) {
-                throw intoHttpError(err, 400);
-            }
-        }
-        return (this._contentType = res);
+    getClientIpAddress() {
+        return this.getUpstreamIpAddresses()[0];
+    }
+
+    getUpstreamIpAddresses() {
+        let existing = this._ipAddresses;
+        if (existing) return existing;
+        return this._ipAddresses = RequestUtils.getUpstreamIpAddresses(this.req);
+    }
+
+    getHost(): string {
+        return RequestUtils.getHost(this.req);
+    }
+
+    getProtocol(): string {
+        return RequestUtils.getProtocol(this.req);
+    }
+
+    isEncrypted() {
+        return RequestUtils.isEncrypted(this.req);
+    }
+
+    getResponseHeaders() {
+        return ResponseUtils.getResponseHeaders(this.res);
+    }
+
+    setHeader(key: string, value: string, replace = true) {
+        return ResponseUtils.setHeader(this.res, key, value, replace);
+    }
+
+    setHeaders(headers: any) {
+        ResponseUtils.setHeaders(this.res, headers);
+    }
+
+    appendHeaderValue(key: string, value: string, forceAppend = false) {
+        ResponseUtils.appendHeaderValue(this.res, key, value, forceAppend);
+    }
+
+    removeHeaderValue(key: string, value: string, removeHeaderIfEmpty = true) {
+        ResponseUtils.removeHeaderValue(this.res, key, value, removeHeaderIfEmpty);
+    }
+
+    setContentType(value: string, force = false) {
+        ResponseUtils.setContentType(this.res, value, force);
     }
 
     setStatus(code: number, message?: string) {
-        this.res.statusCode = code;
-        if (message)
-            this.res.statusMessage = message;
+        ResponseUtils.setStatus(this.res, code, message);
     }
 
     sendStatus(code: number, message?: string, headers?: any) {
-        this.setHeaders(headers);
-        this.setStatus(code, message);
-        this.res.end();
+        ResponseUtils.sendStatus(this.res, code, message, headers);
+    }
+
+    send(body: any, headers?: any, code = 200) {
+        ResponseUtils.send(this.res, body, headers, code);
+    }
+
+    sendText(text: string) {
+        ResponseUtils.sendText(this.res, text);
+    }
+
+    sendAsJson(data: any,
+        replacer?: (key: string, value: any) => any,
+        spaces?: string | number) {
+        ResponseUtils.sendAsJson(this.res, data, replacer, spaces);
     }
 
     sendNoContent(headers?: any) {
@@ -128,29 +188,6 @@ export class Context {
         this.send(body, headers, 400);
     }
 
-    sendMethodNotAllowed(allowedMethods: string[] | string, reason: string = null, headers?: any) {
-        let allowHeaderString;
-        if (Array.isArray(allowedMethods)) {
-            if (allowedMethods.length < 1)
-                throw new Error("allowed methods invalid");
-            allowHeaderString = allowedMethods.join(", ");
-        } else {
-            if (!allowedMethods)
-                throw new Error("allowed methods parameter required");
-            allowHeaderString = allowedMethods;
-        }
-        let mergedHeaders;
-        let allowHeaders = {
-            "Allow": allowHeaderString,
-        }
-        if (headers) {
-            mergedHeaders = Object.assign({}, headers, allowHeaders);
-        } else {
-            mergedHeaders = allowHeaders;
-        }
-        this.sendStatus(405, reason, mergedHeaders);
-    }
-
     sendNotFound(reason: string = null, headers?: any) {
         this.send(reason, headers, 404);
     }
@@ -159,200 +196,25 @@ export class Context {
         this.send(reason, headers, 401);
     }
 
-    // TODO: add sendFile, sendStream
-    send(body: any, headers?: any, code = 200) {
-        this.setHeaders(headers);
-        this.setStatus(code);
-        isString(body) ?
-            this.sendText(body) :
-            this.sendAsJson(body);
+    sendMethodNotAllowed(allowedMethods: string[] | string, reason: string = null, headers?: any) {
+        ResponseUtils.sendMethodNotAllowed(this.res, allowedMethods, reason, headers);
     }
 
-    sendText(text: string) {
-        this.setContentType("text/plain");
-        this.res.end(text);
-    }
-
-    sendAsJson(data: any,
-        replacer?: (key: string, value: any) => any,
-        spaces?: string | number) {
-        this.setContentType("application/json");
-        let payload = stringify(data, replacer, spaces);
-        this.res.end(payload);
-    }
-
-    setHeader(key: string, value: string, replace = true) {
-        let res = this.res;
-        if (!replace && res.getHeader(key)) return false;
-        res.setHeader(key, value);
-        return true;
-    }
-
-    /**
-     * Appends a value item to a mutli-value header key. It separates
-     * values with "," if there's an string value, or a appends to the
-     * array if there's an existing array. If none exists, creates an
-     * array with the item.
-     *
-     * @param key {String} The header key
-     * @param value {String} The header value
-     * @param forceAppend {Boolean} If true, the value will be appended
-     * regardless of whether the value is already present or not.
-     * Helpful performance optmization if it's known for certain
-     * that a value will not exist, as it avoids a regex call.
-     */
-    appendHeaderValue(key: string, value: string, forceAppend = false) {
-        let res = this.res;
-        let existing = res.getHeader(key);
-        if (!existing) {
-            res.setHeader(key, [value]);
-            return;
+    throw(error: Error): never;
+    throw(status: number, error: Error): never;
+    throw(status: number, msg?: string): never;
+    throw(arg1: number | Error, arg2?: string | Error): never {
+        if (typeof arg1 !== "number") {
+            let status = arg1;
+            throw intoHttpError(status);
         }
-        if (Array.isArray(existing)) {
-            if (forceAppend ||
-                !existing.includes(value)) {
-                existing.push(value);
-                res.setHeader(key, existing);
-            }
-        } else {
-            // Header value is a string seperated by a ",".
-            let shouldSet = true;
-            if (!forceAppend) {
-                let pattern = `(?: *, *)?${value}(?: *, *)?`;
-                if (new RegExp(pattern).test(existing)) shouldSet = false;
-            }
-            if (shouldSet) res.setHeader(key, `${existing}, ${value}`);
+        let status = arg1;        
+        if (!arg2 || typeof arg2 === "string") {
+            let msg = arg2;
+            throw httpError(status, msg);
         }
-    }
-
-    /**
-     * Removes a value from a multi-value header item. Multi-values
-     * header can either be a string separated by ", ", or an array.
-     *
-     * Note: The value provided should one be a single string, and
-     * not an array.
-     *
-     * @param key {String} Key of the header.
-     * @param value {String} The string value to be removed from the
-     * header item.
-     * @param removeHeaderIfEmpty {Boolean} If true, removes the entire
-     * header, if the header is empty after removal of the item.
-     */
-    removeHeaderValue(key: string, value: string, removeHeaderIfEmpty = true) {
-        let res = this.res;
-        let existing = res.getHeader(key);
-        if (!existing) return;
-
-        if (Array.isArray(existing)) {
-            let arr = existing as any as Array<string>;
-            let index = arr.findIndex(x => x === value);
-            if (index > -1) {
-                arr.splice(index, 1);
-                if (removeHeaderIfEmpty && arr.length === 0) res.removeHeader(key);
-                else res.setHeader(key, arr);
-            }
-        } else {
-
-            // Header value is a string seperated by a ",".
-            // If both the comma's are present, replace the pattern with one
-            // ", ". Or else, replace it with an empty string, and trim it.
-
-            let pattern = `( *, *)?${value}( *, *)?`;
-            let regex = new RegExp(pattern);
-            let match = existing.match(regex);
-            if (match) {
-                // If match length is 3, then it means both ", " have been
-                // matched. So, add one ",". Or else, either one of none 
-                // of the comma has been matched. It's a safe assumption
-                // to remove them entirely.
-                let v = existing
-                    .replace(match[0], match.length === 3 ? ", " : "")
-                    .trim();
-
-                if (!v && removeHeaderIfEmpty) res.removeHeader(key);
-                else res.setHeader(key, v);
-            }
-        }
-    }
-
-    getUrl() {
-        if (this._url === null) {
-            this._url = url.parse(this.req.url);
-        }
-        return this._url;
-    }
-
-    getRouteData() {
-        return this._routeData || (this._routeData = new RouteData(this.getUrl().pathname));
-    }
-
-    getRouteParams() {
-        return this.getRouteData().params;
-    }
-
-    getHttpMethod() {
-        // TODO: do method override.
-        return this.req.method;
-    }
-
-    getClientIpAddress() {
-        return this.getUpstreamIpAddresses()[0];
-    }
-
-    getUpstreamIpAddresses() {
-        let existing = this._ipAddresses;
-        if (existing) return existing;
-
-        let addrs;
-        let forwardHeaders = this.req.headers['x-forwarded-for'] as string;
-
-        if (forwardHeaders) {
-            addrs = forwardHeaders
-                .split(/ *, */)
-                .filter(x => x);
-            addrs.push(this.req.socket.remoteAddress);
-        } else {
-            addrs = [this.req.socket.remoteAddress];
-        }
-        return this._ipAddresses = addrs;
-    }
-
-    getHost(): string {
-        let host = this.req.headers["x-forwarded-host"] || this.req.headers["host"];
-        return stripBrackets(host);
-
-        function stripBrackets(host: string) {
-            // IPv6 uses [::]:port format.
-            // Brackets are used to separate the port from
-            // the address. In this case, remove the brackets,
-            // and extract the address only.
-
-            let offset = host[0] === '['
-                ? host.indexOf(']') + 1
-                : 0;
-            let index = host.indexOf(':', offset);
-
-            return index !== -1
-                ? host.substring(0, index)
-                : host;
-        }
-    }
-
-    getProtocol(): string {
-        return this.isEncrypted() ? "https" : "http";
-    }
-
-    isEncrypted() {
-        return (this.req.connection as any).encrypted ? true : false;
-    }
-
-    getRequestBody<T>(parser?: bodyParser.Parser): Promise<T> {
-        if (this._bodyParseTask === null) {
-            let task = bodyParser.parseBody<T>(this.req, null, parser || this.parser);
-            this._bodyParseTask = task;
-            return task;
-        }
-        return this._bodyParseTask;
+        let error = arg2;
+        throw intoHttpError(error, status, true);
     }
 }
 
