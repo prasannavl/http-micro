@@ -5,11 +5,15 @@ import { stringify } from "./utils";
 import { isString } from "./lang";
 import { RouteData } from "./route-data";
 import * as bodyParser from "./body-parser";
+import * as contentType from "content-type";
+import { intoHttpError } from "./error-utils";
 
 export class Context {
     
     items: Map<string, any>;
     parser: bodyParser.Parser;
+
+    private _contentType: contentType.MediaType;
 
     private _url: url.Url = null;
     private _ipAddresses: string[] = null;
@@ -73,10 +77,31 @@ export class Context {
         }
     }
 
-    setContentType(contentType: string, force = false) {
+    setContentType(value: string | contentType.MediaType, force = false) {
+        if (this.res.headersSent) return;
         const ContentTypeKey = "Content-Type";
-        if (!this.res.headersSent)
-            this.setHeader(ContentTypeKey, contentType, force);
+        let valueString: string;
+        if (typeof value === "string")
+            valueString = value;
+        else
+            valueString = contentType.format(value);
+        this.setHeader(ContentTypeKey, valueString, force);
+    }
+
+    getContentType() {
+        if (this._contentType !== undefined)
+            return this._contentType;
+
+        let contentTypeHeader = this.req.headers["content-type"];
+        let res: contentType.MediaType = null;
+        if (contentTypeHeader) {
+            try {
+                res = contentType.parse(contentTypeHeader);
+            } catch (err) {
+                throw intoHttpError(err, 400);
+            }
+        }
+        return (this._contentType = res);
     }
 
     setStatus(code: number, message?: string) {
@@ -323,7 +348,7 @@ export class Context {
 
     getRequestBody<T>(parser?: bodyParser.Parser): Promise<T> {
         if (this._bodyParseTask === null) {
-            let task = bodyParser.parseBody<T>(this.req, parser || this.parser);
+            let task = bodyParser.parseBody<T>(this.req, null, parser || this.parser);
             this._bodyParseTask = task;
             return task;
         }
