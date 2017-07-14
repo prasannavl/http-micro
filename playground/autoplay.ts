@@ -23,7 +23,7 @@ function run() {
         { path: "/chain/c2/hello" }
     ];
 
-    new Server().listen(opts.port, opts.host, () => {
+    new Server().listen(opts.port as number, opts.host, () => {
         console.log("server running on %s:%s", opts.host, opts.port);
         requests.forEach(x => {
             let req = http.request(Object.assign({}, opts, x), (res) => {
@@ -94,13 +94,18 @@ export class Server {
             return Promise.resolve();
         });
 
+        router.get("/hello-data", (ctx, next) => {
+            ctx.sendText("no-id data");
+            return Promise.resolve();
+        }, { end: true });
+
         router.get("/hello-data/:id", (ctx, next) => {
-            ctx.sendAsJson(ctx.getRouteData());
+            ctx.sendAsJson(ctx.getRouteContext().params);
             return Promise.resolve();
         });
         
         router.get(/reg(ex)per$/i, (ctx, next) => {
-            ctx.sendAsJson(ctx.getRouteData());
+            ctx.sendAsJson(ctx.getRouteContext());
             return Promise.resolve();
         });
 
