@@ -5,6 +5,9 @@ import * as typeis from "type-is";
 import * as contentType from "content-type";
 import * as mimeTypes from "mime-types";
 import * as httpError from "http-errors";
+import * as stream from "stream";
+import * as zlib from "zlib";
+import * as onfinished from "on-finished";
 import { intoHttpError } from "./error-utils";
 
 export type ParserCallback = (error: rawBody.RawBodyError, body?: string | Buffer) => void;
@@ -15,15 +18,18 @@ export function rawBodyParserFactory() {
     return function rawParser(req: http.IncomingMessage, callback: ParserCallback, opts?: any) {
         if (handleRequestBodyAbsence(req, callback)) return;
 
-        let limit: number, contentLength: number, encoding: rawBody.Encoding;
+        let limit: number, contentLength: number,
+            encoding: rawBody.Encoding,
+            defaultEncoding: string;
+        
         if (opts) {
             limit = opts.limit;
             contentLength = opts.length;
             encoding = opts.encoding;
+            defaultEncoding = opts.defaultEncoding;
         }
 
         limit = limit || defaultLimit;
-        contentLength = contentLength || Number(req.headers["content-length"]);
 
         if (encoding === undefined) {
             let contentTypeHeader = req.headers["content-type"] as string;
@@ -47,8 +53,8 @@ export function rawBodyParserFactory() {
             }
         }
 
-        if (encoding === undefined && opts)
-            encoding = opts.defaultEncoding;
+        if (encoding === undefined)
+            encoding = defaultEncoding;
 
         rawBody(req, {
             limit: limit,
@@ -106,11 +112,11 @@ export function formBodyParserFactory(opts: FormBodyParserOpts, baseParser?: Par
         // TODO: Not very happy with the implementation here, for passing override opts to 
         // the raw parser. It works, however, could be better designed.
         if (baseOpts == null || baseOpts.defaultEncoding === undefined) {
-            // It's important to pass in the default encoding as true (translates to 'utf-8'), 
+            // It's important to pass in the default encoding as 'utf-8', 
             // since, mime-types don't resolve the default charset for 
             // `application/x-www-form-urlencoded`
             // TODO: Default charset Latin-1?
-            baseOpts = Object.assign({}, baseOpts, { defaultEncoding: true });
+            baseOpts = Object.assign({}, baseOpts, { defaultEncoding: "utf-8" });
         }
         rawParser(req, function (err, body) {
             if (err) {
@@ -136,11 +142,14 @@ export function anyBodyParserFactory(opts?: AnyParserOptions, baseParser?: Parse
     let rawParser = baseParser || rawBodyParserFactory();
     let jsonParser = jsonBodyParserFactory(opts, rawParser);
     let formParser = formBodyParserFactory(opts, rawParser);
+    
+    // Note: "text" type is also automatically handled by the rawParser
+    // when content-type is set appropriately.
     let types = ["json", "urlencoded"];
     
     return function anyBodyParser(req: http.IncomingMessage, callback: ParserCallback, baseParserOpts?: any) {
         if (handleRequestBodyAbsence(req, callback)) return;
-
+        
         let t = typeis(req, types);
         switch (t) {
             case types[0]: {
@@ -191,4 +200,28 @@ export function hasBody(req: http.IncomingMessage) {
     let contentLength = headers["content-length"];
     if (contentLength && Number(contentLength) > 0) return true;
     return false;
+}
+
+export function makeContentStream(req: http.IncomingMessage, encoding: string) {
+    if (!encoding) return req;
+    let stream: any;
+    switch (encoding) {
+        case "deflate":
+            stream = zlib.createInflate();
+            req.pipe(stream);
+            break;
+        case "gzip":
+            stream = zlib.createGunzip();
+            req.pipe(stream);
+            break;
+        case "identity":
+            stream = req;
+            break;
+        default:
+            throw httpError(415, 'unsupported content encoding "' + encoding + '"', { encoding });
+    }
+    if (stream != req) {
+        stream.headers = req.headers;
+    }
+    return stream;
 }

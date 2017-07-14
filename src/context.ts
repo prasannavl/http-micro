@@ -82,20 +82,18 @@ export class Context {
     }
 
     getRequestStream() {
-        // TODO: Do request stream pre-processing, like 
-        // Content-Encoding, Transfer-Encoding of gzip, etc.
+        // TODO: Do request stream pre-processing
         return this.req;
     }
 
     getResponseStream() {
-        // TODO: Do post processing of stream, like 
-        // Content-Encoding, Transfer-Encoding of gzip, etc.
+        // TODO: Do post processing of stream
         return this.res;
     }
 
     getRequestBody<T>(parser?: bodyParser.Parser): Promise<T> {
         if (this._bodyParseTask === null) {
-            let task = bodyParser.parseBody<T>(this.getRequestStream(), null, parser || this.requestParser);
+            let task = RequestUtils.parseBody<T>(this.getRequestStream(), null, parser || this.requestParser);
             this._bodyParseTask = task;
             return task;
         }

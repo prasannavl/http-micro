@@ -11,16 +11,22 @@ function run() {
     } as http.RequestOptions;
 
     let requests = [
-        { path: "/test" },
+        { path: "/not-found" },
         { path: "/hello" },
-        { path: "/api" },
         {
             path: "/chain/echo", method: "POST",
             headers: { "content-type": "application/json" },    
-            body: `{ "message": "hello" }`
+            body: `{ "message": "hello from nested echo" }`
         },
         { path: "/chain/c1/hello" },
-        { path: "/chain/c2/hello" }
+        { path: "/chain/c2/hello" },
+        { path: "/hello-route/test-data" },
+        { path: "/regexp-route/this-is-it" },
+        {
+            path: "/echo", method: "POST",
+            headers: { "content-type": "application/json" },    
+            body: `{ "message": "hello fro echo route" }`
+        }
     ];
 
     new Server().listen(opts.port as number, opts.host, () => {
@@ -28,13 +34,18 @@ function run() {
         requests.forEach(x => {
             let req = http.request(Object.assign({}, opts, x), (res) => {
                 console.log("-----");
+                console.log(`path: ${x.path}`);
+                let body = (x as any).body;
+                if (body)
+                    console.log(`data: ${body}`);
+                console.log("--");
                 console.log(`${res.statusCode} ${res.statusMessage}`);
                 console.log(`${util.inspect(res.headers, false, null)}\r\n`);
                 res.on("data", (chunk) => {
                     process.stdout.write(chunk);
                 });
                 res.on("end", () => {
-                    console.log("\r\n-----");
+                    console.log("\r\n-----\r\n");
                 });
             });
             let body = (x as any).body;
@@ -60,6 +71,10 @@ export class Server {
     setupMiddleware() {
         let app = this.app;
         app.use((ctx, next) => {
+            console.log("req-in: " + ctx.getUrl().pathname);
+            return next();
+        });
+        app.use((ctx, next) => {
             if (ctx.req.url.endsWith("raw")) {
                 ctx.res.end("Hello from raw middlware!");
                 return Promise.resolve();
@@ -74,56 +89,42 @@ export class Server {
         let router = new Router<AppContext>();
 
         router.get("/hello", (ctx, next) => {
-            ctx.sendText("Hello route!");
+            ctx.send("Hello!");
             return Promise.resolve();
         });
 
         router.get("/hello-string", (ctx, next) => {
-            ctx.sendText("Hello string!");
+            ctx.send("Hello string!");
             return Promise.resolve();
         });
 
         router.get("/hello-object", (ctx, next) => {
-            ctx.sendAsJson({ message: "Hello world!" });
+            ctx.send({ message: "Hello world!" });
             return Promise.resolve();
         });
 
-        router.post("/echo-object", async (ctx, next) => {
+        router.post("/echo", async (ctx, next) => {
             let body = await ctx.getRequestBody();
-            ctx.send(body);
+            ctx.sendAsJson(body, null, 4);
             return Promise.resolve();
         });
 
-        router.get("/hello-data", (ctx, next) => {
-            ctx.sendText("no-id data");
+        router.get("/hello-route", (ctx, next) => {
+            ctx.send("hello route with no data");
             return Promise.resolve();
         }, { end: true });
 
-        router.get("/hello-data/:id", (ctx, next) => {
-            ctx.sendAsJson(ctx.getRouteContext().params);
+        router.get("/hello-route/:data", (ctx, next) => {
+            ctx.sendAsJson(ctx.getRouteContext().params, null, 4);
             return Promise.resolve();
         });
         
-        router.get(/reg(ex)per$/i, (ctx, next) => {
-            ctx.sendAsJson(ctx.getRouteContext());
+        router.get(/(regexp)-route(\/.*)?$/i, (ctx, next) => {
+            ctx.sendAsJson(ctx.getRouteContext().getCurrentMatch().data, null, 4);
             return Promise.resolve();
         });
 
-        router.get("/test", (ctx, next) => {
-            let res = ctx.res;
-            ctx.send("Test!");
-            res.end();
-            return Promise.resolve();
-        });
-
-        router.all("/api", (ctx, next) => {
-            ctx.sendAsJson({
-                message: "api route!",
-            });
-            return Promise.resolve();
-        });
-
-        router.get("/api/numbers", (ctx, next) => {
+        router.get("/numbers", (ctx, next) => {
             let str = "";
             for (let i = 0; i < 1000; i++) {
                 str += i.toString() + "\n";

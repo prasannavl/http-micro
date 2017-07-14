@@ -9,6 +9,7 @@ import * as contentType from "content-type";
 import { intoHttpError } from "./error-utils";
 import * as stream from "stream";
 import * as contentDisposition from "content-disposition";
+import * as accepts from "accepts";
 
 export class RequestUtils {
     static getUpstreamIpAddresses(req: http.IncomingMessage) {
@@ -51,34 +52,35 @@ export class RequestUtils {
         }
         return result;
     }
+
+    static parseBody<T>(req: http.IncomingMessage, opts: any, parser: bodyParser.Parser) {
+        let contentStream;
+        let parseOpts = opts;
+        let contentEncoding = req.headers["content-encoding"] as string;
+        let identityStream = true;
+        if (contentEncoding) {
+            contentEncoding = contentEncoding.toLowerCase();
+            if (contentEncoding != "identity") {
+                identityStream = false;
+            }
+        }
+        
+        if (identityStream) {
+            contentStream = req;
+            let contentLength = Number(req.headers["content-length"]);
+            if (contentLength > 0) {
+                if (!parseOpts || parseOpts.length === undefined)
+                    parseOpts = Object.assign({}, parseOpts, { length: contentLength });
+            }
+        }
+        else {
+            contentStream = bodyParser.makeContentStream(req, contentEncoding);
+        }
+        return bodyParser.parseBody<T>(contentStream, opts, parser);
+    }
 }
 
 export class ResponseUtils {
-    static send(res: http.ServerResponse, body: any, headers?: any, code = 200) {
-        ResponseUtils.setHeaders(res, headers);
-        ResponseUtils.setStatus(res, code);
-        if (!body) {
-            res.end();
-            return;
-        }
-        isString(body) ?
-            ResponseUtils.sendText(res, body) :
-            ResponseUtils.sendAsJson(res, body);
-    }
-
-    static sendText(res: http.ServerResponse, text: string) {
-        ResponseUtils.setContentType(res, "text/plain");
-        res.end(text);
-    }
-
-    static sendAsJson(res: http.ServerResponse, data: any,
-        replacer?: (key: string, value: any) => any,
-        spaces?: string | number) {
-        ResponseUtils.setContentType(res, "application/json");
-        let payload = stringify(data, replacer, spaces);
-        res.end(payload);
-    }
-
     static setHeaders(res: http.ServerResponse, headers: any) {
         if (!headers) return;
         // Do the same thing that writeHead does, to ensure compatibility.
@@ -193,6 +195,34 @@ export class ResponseUtils {
             res.statusMessage = message;
     }
 
+    static send(res: http.ServerResponse, body: any, headers?: any, code?: number, formatter?: any) {
+        ResponseUtils.setHeaders(res, headers);
+        if (code != null)
+            ResponseUtils.setStatus(res, code);
+
+        if (!body) {
+            res.end();
+            return;
+        }
+
+        isString(body) ?
+            ResponseUtils.sendText(res, body) :
+            ResponseUtils.sendAsJson(res, body);
+    }
+
+    static sendText(res: http.ServerResponse, text: string) {
+        ResponseUtils.setContentType(res, "text/plain");
+        res.end(text);
+    }
+
+    static sendAsJson(res: http.ServerResponse, data: any,
+        replacer?: (key: string, value: any) => any,
+        spaces?: string | number, encoding?: string) {
+        ResponseUtils.setContentType(res, "application/json");
+        let payload = stringify(data, replacer, spaces);
+        res.end(payload);
+    }
+
     static sendStatus(res: http.ServerResponse, code: number, message?: string, headers?: any) {
         ResponseUtils.setHeaders(res, headers);
         ResponseUtils.setStatus(res, code, message);
@@ -222,7 +252,8 @@ export class ResponseUtils {
         ResponseUtils.sendStatus(res, 405, reason, mergedHeaders);
     }
 
-    static setContentDisposition(res: http.ServerResponse, filename: string, type: DispositionKind | string = DispositionKind.Attachment) {
+    static setContentDisposition(res: http.ServerResponse,
+        filename: string, type: DispositionKind | string = DispositionKind.Attachment) {
         res.setHeader("Content-Disposition", contentDisposition(filename, { type }));
     }
 

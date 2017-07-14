@@ -56,6 +56,12 @@ export class Application<T extends Context = Context> implements IApplication {
             let context: T = null;
             try {
                 context = this._contextFactory(this, req, res);
+                req.on("error", (err) => {
+                    errorHandler(err, req, res, context);
+                });
+                res.on("error", (err) => {
+                    errorHandler(err, req, res, context);
+                });
                 fn(context, () => fallbackHandler(context, null))
                     .catch((err) => errorHandler(err, req, res, context));
             } catch (err) {
