@@ -26,7 +26,7 @@ export function rawBodyParserFactory() {
         contentLength = contentLength || Number(req.headers["content-length"]);
 
         if (encoding === undefined) {
-            let contentTypeHeader = req.headers["content-type"];
+            let contentTypeHeader = req.headers["content-type"] as string;
             // Ensure that further attempts are skipped, as contentType
             // will throw on invalid header. Since rawParser could 
             // potentially be passed on it's own to get a buffer back.
@@ -109,6 +109,7 @@ export function formBodyParserFactory(opts: FormBodyParserOpts, baseParser?: Par
             // It's important to pass in the default encoding as true (translates to 'utf-8'), 
             // since, mime-types don't resolve the default charset for 
             // `application/x-www-form-urlencoded`
+            // TODO: Default charset Latin-1?
             baseOpts = Object.assign({}, baseOpts, { defaultEncoding: true });
         }
         rawParser(req, function (err, body) {
@@ -119,6 +120,7 @@ export function formBodyParserFactory(opts: FormBodyParserOpts, baseParser?: Par
             try {
                 if (typeof body !== "string")
                     throw new Error("buffered raw body is not a string to parse as url encoded form");
+                // TODO: How to handle charset?
                 res = qsParse(body, sep, eq, options);
             } catch (e) {
                 return callback(e);
