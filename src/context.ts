@@ -130,10 +130,6 @@ export class Context {
         return RequestUtils.isEncrypted(this.req);
     }
 
-    getResponseHeaders() {
-        return ResponseUtils.getResponseHeaders(this.res);
-    }
-
     setHeader(key: string, value: string, replace = true) {
         return ResponseUtils.setHeader(this.res, key, value, replace);
     }
@@ -177,23 +173,23 @@ export class Context {
     }
 
     sendNoContent(headers?: any) {
-        this.sendStatus(204, null, headers);
+        ResponseUtils.sendNoContent(this.res, headers);
     }
 
     sendResetContent(headers?: any) {
-        this.sendStatus(205, null, headers);
+        ResponseUtils.sendResetContent(this.res, headers);
     }
 
     sendBadRequest(body: any, headers?: any) {
-        this.send(body, headers, 400);
+        ResponseUtils.sendBadRequest(this.res, body, headers);
     }
 
     sendNotFound(reason: string = null, headers?: any) {
-        this.send(reason, headers, 404);
+        ResponseUtils.sendNotFound(this.res, reason, headers);
     }
 
     sendForbidden(reason: any, headers?: any) {
-        this.send(reason, headers, 401);
+        ResponseUtils.sendForbidden(this.res, reason, headers);
     }
 
     sendMethodNotAllowed(allowedMethods: string[] | string, reason: string = null, headers?: any) {

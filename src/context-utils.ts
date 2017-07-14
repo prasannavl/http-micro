@@ -7,6 +7,8 @@ import { RouteContext } from "./route-context";
 import * as bodyParser from "./body-parser";
 import * as contentType from "content-type";
 import { intoHttpError } from "./error-utils";
+import * as stream from "stream";
+import * as contentDisposition from "content-disposition";
 
 export class RequestUtils {
     static getUpstreamIpAddresses(req: http.IncomingMessage) {
@@ -26,7 +28,7 @@ export class RequestUtils {
 
     static getHost(req: http.IncomingMessage): string {
         let host = req.headers["x-forwarded-host"] || req.headers["host"];
-        return stripHostBrackets(host);
+        return stripHostBrackets(<string>host);
     }
 
     static isEncrypted(req: http.IncomingMessage) {
@@ -38,7 +40,7 @@ export class RequestUtils {
     }
 
     static getContentType(req: http.IncomingMessage) {
-        let contentTypeHeader = req.headers["content-type"];
+        let contentTypeHeader = req.headers["content-type"] as string;
         let result: contentType.MediaType = null;
         if (contentTypeHeader) {
             try {
@@ -75,10 +77,6 @@ export class ResponseUtils {
         ResponseUtils.setContentType(res, "application/json");
         let payload = stringify(data, replacer, spaces);
         res.end(payload);
-    }
-
-    static getResponseHeaders(res: http.ServerResponse) {
-        return (res as any).getHeaders();
     }
 
     static setHeaders(res: http.ServerResponse, headers: any) {
@@ -125,11 +123,12 @@ export class ResponseUtils {
         } else {
             // Header value is a string seperated by a ",".
             let shouldSet = true;
+            let existingHeader = existing as string;
             if (!forceAppend) {
                 let pattern = `(?: *, *)?${value}(?: *, *)?`;
-                if (new RegExp(pattern).test(existing)) shouldSet = false;
+                if (new RegExp(pattern).test(existingHeader)) shouldSet = false;
             }
-            if (shouldSet) res.setHeader(key, `${existing}, ${value}`);
+            if (shouldSet) res.setHeader(key, `${existingHeader}, ${value}`);
         }
     }
 
@@ -159,20 +158,20 @@ export class ResponseUtils {
                 else res.setHeader(key, arr);
             }
         } else {
-
+            let existingHeader = existing as string;
             // Header value is a string seperated by a ",".
             // If both the comma's are present, replace the pattern with one
             // ", ". Or else, replace it with an empty string, and trim it.
 
             let pattern = `( *, *)?${value}( *, *)?`;
             let regex = new RegExp(pattern);
-            let match = existing.match(regex);
+            let match = existingHeader.match(regex);
             if (match) {
                 // If match length is 3, then it means both ", " have been
                 // matched. So, add one ",". Or else, either one of none 
                 // of the comma has been matched. It's a safe assumption
                 // to remove them entirely.
-                let v = existing
+                let v = existingHeader
                     .replace(match[0], match.length === 3 ? ", " : "")
                     .trim();
 
@@ -222,6 +221,35 @@ export class ResponseUtils {
         }
         ResponseUtils.sendStatus(res, 405, reason, mergedHeaders);
     }
+
+    static setContentDisposition(res: http.ServerResponse, filename: string, type: DispositionKind | string = DispositionKind.Attachment) {
+        res.setHeader("Content-Disposition", contentDisposition(filename, { type }));
+    }
+
+    static sendNoContent(res: http.ServerResponse, headers?: any) {
+        ResponseUtils.sendStatus(res, 204, null, headers);
+    }
+
+    static sendResetContent(res: http.ServerResponse, headers?: any) {
+        ResponseUtils.sendStatus(res, 205, null, headers);
+    }
+
+    static sendBadRequest(res: http.ServerResponse, body: any, headers?: any) {
+        ResponseUtils.send(res, body, headers, 400);
+    }
+
+    static sendNotFound(res: http.ServerResponse, reason: string = null, headers?: any) {
+        ResponseUtils.send(res, reason, headers, 404);
+    }
+
+    static sendForbidden(res: http.ServerResponse, reason: any, headers?: any) {
+        ResponseUtils.send(res, reason, headers, 401);
+    }
+}
+
+export enum DispositionKind {
+    Attachment = "attachment",    
+    Inline = "inline",
 }
 
 function stripHostBrackets(host: string) {
